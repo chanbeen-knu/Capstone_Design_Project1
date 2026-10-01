@@ -1,4 +1,10 @@
 # Byte-compiled / optimized / DLL files
+# Front-end dependencies and local environment
+node_modules/
+.env.*
+!.env.example
+.DS_Store
+
 __pycache__/
 *.py[codz]
 *$py.class
