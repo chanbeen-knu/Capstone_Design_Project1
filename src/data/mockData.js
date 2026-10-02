@@ -31,11 +31,3 @@ export const nodeDescriptions = {
   fall: '인양 작업과 연결된 위험요인입니다. 예방대책 노드와의 관계를 확인할 수 있습니다.',
   control: '낙하 위험에 연결한 예방대책 예시입니다. 실제 현장 적용을 위한 검증된 지침은 아닙니다.',
 };
-export function createMockReply(question) {
-  const matched = mockGraph.nodes.filter((node) => question.includes(node.label));
-  return {
-    answer: `${matched.length ? matched.map((node) => node.label).join(', ') + '에 관련된' : '현재 화면의'} 예시 관계를 살펴보세요.\n\n크레인 → 인양 작업 → 낙하 위험 → 작업구역 통제\n\n설비에서 작업, 위험요인, 예방대책으로 이어지는 관계를 표현한 더미 데이터입니다. 중앙 그래프의 노드를 선택하면 각 항목을 확인할 수 있습니다.`,
-    sources: [],
-    graph: mockGraph,
-  };
-}
