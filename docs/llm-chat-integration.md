@@ -14,6 +14,35 @@ React (Vite :5173) --fetch('/api/chat')--> Vite proxy --> FastAPI (:8000) --> Up
 - API 키는 `backend/.env`에만 존재하고 git에 올라가지 않습니다 (`.gitignore`에 이미 `.env`, `.env.*` 패턴이 있어 `backend/` 하위에도 적용됩니다).
 - Upstage Solar는 OpenAI SDK와 호환되는 방식(`base_url` 오버라이드)으로 제공되어, `openai` 패키지로 그대로 호출합니다.
 
+## ⚠️ 팀원 조치 필요: 의존성 패키지 변경 (`backend/requirements.txt`)
+
+최근 커밋에서 LLM 프로바이더를 Gemini → Upstage Solar로 교체하면서 `backend/requirements.txt`의 패키지 구성이 바뀌었습니다.
+
+| 변경 | 이전 | 이후 |
+| --- | --- | --- |
+| LLM SDK | `google-genai` (제거) | `openai` (신규 추가) |
+| 나머지 패키지 | `fastapi`, `uvicorn[standard]`, `python-dotenv` | 동일 (변경 없음) |
+
+Upstage Solar API는 OpenAI SDK와 호환되는 방식(`base_url` 오버라이드)으로 제공되기 때문에, Gemini 전용 SDK였던 `google-genai`를 걷어내고 범용 `openai` 패키지로 교체했습니다.
+
+**기존에 `backend/.venv`를 이미 만들어서 쓰고 있던 사람(또는 AI 에이전트)은 반드시 아래 작업을 해야 합니다:**
+
+```bash
+cd backend
+source .venv/bin/activate
+pip install -r requirements.txt   # openai 설치, google-genai는 자동 정리되지 않으니 필요시 pip uninstall google-genai
+```
+
+- `pip install -r requirements.txt`만 돌리면 `openai`는 새로 설치되지만, 기존에 깔려 있던 `google-genai`는 자동으로 제거되지 않습니다. 완전히 깨끗한 환경을 원하면 `pip uninstall google-genai` 후 재설치하거나, venv를 통째로 재생성하세요:
+  ```bash
+  rm -rf .venv
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  ```
+- `.env` 파일도 `GEMINI_API_KEY`/`GEMINI_MODEL`이 아니라 `UPSTAGE_API_KEY`/`UPSTAGE_MODEL`을 사용하도록 바뀌었습니다. `.env.example`을 참고해 키 이름을 맞춰주세요 (값은 각자의 Upstage API 키로 교체).
+- AI 코딩 에이전트(Claude, Cursor 등)에게 백엔드 작업을 시킬 때도 이 변경사항을 인지시켜야 합니다 — 과거 대화 기록이나 캐시된 컨텍스트에 `google-genai` 기반 코드가 남아있다면 혼동할 수 있으니, 이 문서(`docs/llm-chat-integration.md`)와 `backend/main.py`를 최신 기준으로 다시 읽게 하세요.
+
 ## Git 브랜치 현황
 
 - `main` — 프론트엔드 작업이 머지된 최신 상태.
