@@ -1,9 +1,8 @@
 export const menus = [
-  { id: 'explore', label: '전체 탐색', icon: 'graph' },
-  { id: 'cases', label: '사고 사례', icon: 'document' },
-  { id: 'equipment', label: '작업 · 설비', icon: 'equipment' },
-  { id: 'prevention', label: '위험요인 · 예방대책', icon: 'shield' },
-  { id: 'experiment', label: '비교 실험', icon: 'experiment' },
+  { id: 'explore', label: '온톨로지 전체 탐색', icon: 'graph' },
+  { id: 'chat', label: '안전대책 물어보기', icon: 'chat' },
+  { id: 'cases', label: '사고 사례 조회', icon: 'document' },
+  { id: 'about', label: '프로젝트 소개', icon: 'experiment' },
   { id: 'settings', label: '설정', icon: 'settings' },
 ];
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { menus, nodeTypes, nodeDescriptions } from '../data/mockData';
 import Icon from './Icon';
+import { useSettings } from '../settings';
 
 
 // Neo4j 노드의 상세 설명.
@@ -24,6 +25,9 @@ function describeNode(node) {
 
 export default function GraphPanel({ graph, selectedMenu, selectedNode, 
   onSelectNode, objects = [], currentObject, onSelectObject, graphError }) {
+  const settings = useSettings();
+  const canvasColor = settings.dark ? '#182630' : '#f8fafb';
+  const textColor = settings.dark ? '#edf5f1' : '#293b49';
   const container = useRef(null);
   const graphRef = useRef(null);
   const fittedFor = useRef(null);
@@ -84,8 +88,8 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
     ctx.globalAlpha = dimmed ? 0.25 : 1;
     ctx.beginPath(); ctx.arc(node.x, node.y, selected ? radius + 4 : radius, 0, Math.PI * 2);
     ctx.fillStyle = style.background; ctx.fill(); ctx.strokeStyle = style.color; ctx.lineWidth = selected ? 3 : 1.5; ctx.stroke();
-    ctx.fillStyle = style.color; ctx.font = '600 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(style.label, node.x, node.y);
-    ctx.fillStyle = '#293b49'; ctx.font = '600 12px sans-serif'; ctx.fillText(node.label, node.x, node.y + radius + 14); ctx.globalAlpha = 1;
+    ctx.fillStyle = style.color; ctx.font = '600 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; if (settings.nodeDisplay === 'both') ctx.fillText(style.label, node.x, node.y);
+    ctx.fillStyle = textColor; ctx.font = '600 12px sans-serif'; ctx.fillText(node.label, node.x, node.y + radius + 14); ctx.globalAlpha = 1;
   }
 
   const caption = isMock ? 'CRANE OPERATIONS' : `${graph.title}`;
@@ -109,7 +113,7 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
     {graphError && <div className="graph-count" style={{ padding: '8px 25px', background: '#fcf3e7', color: '#9a6b2f' }}>Neo4j 그래프를 불러오지 못해 샘플 데이터를 표시합니다 · {graphError}</div>}
     <div className="graph-canvas" ref={container}>
       <div className="canvas-caption"><span className="tiny-square"/> {caption}<span>{captionSub}</span></div>
-      {size.width > 0 && <ForceGraph2D ref={graphRef} width={size.width} height={size.height} graphData={graphData} backgroundColor="#f8fafb" nodeId="id" nodeLabel={(node) => describeNode(node)} nodeCanvasObject={drawNode} nodePointerAreaPaint={(node, color, ctx) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(node.x, node.y, 30, 0, Math.PI * 2); ctx.fill(); }} linkColor={() => '#bac7d0'} linkWidth={(link) => (isMock ? 1.4 : Math.min(1 + (link.count ?? 0) / 40, 5))} linkDirectionalArrowLength={6} linkDirectionalArrowRelPos={0.72} linkCanvasObjectMode={() => 'after'} linkCanvasObject={(link, ctx) => { if (typeof link.source !== 'object') return; const x = (link.source.x + link.target.x) / 2; const y = (link.source.y + link.target.y) / 2; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#f8fafb'; ctx.fillRect(x - 44, y - 7, 88, 15); ctx.fillStyle = '#7c8d9b'; ctx.fillText(link.relation, x, y + 4); }} d3VelocityDecay={0.35} cooldownTicks={120} onEngineStop={handleEngineStop} onNodeClick={(node) => onSelectNode(graph.nodes.find((item) => item.id === node.id))} enableNodeDrag={!isMock} minZoom={0.3} maxZoom={3}/>}
+      {size.width > 0 && <ForceGraph2D ref={graphRef} width={size.width} height={size.height} graphData={graphData} backgroundColor={canvasColor} nodeId="id" nodeLabel={(node) => describeNode(node)} nodeCanvasObject={drawNode} nodePointerAreaPaint={(node, color, ctx) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(node.x, node.y, 30, 0, Math.PI * 2); ctx.fill(); }} linkColor={() => '#bac7d0'} linkWidth={(link) => (isMock ? 1.4 : Math.min(1 + (link.count ?? 0) / 40, 5))} linkDirectionalArrowLength={6} linkDirectionalArrowRelPos={0.72} linkCanvasObjectMode={() => 'after'} linkCanvasObject={(link, ctx) => { if (!settings.relations || typeof link.source !== 'object') return; const x = (link.source.x + link.target.x) / 2; const y = (link.source.y + link.target.y) / 2; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = canvasColor; ctx.fillRect(x - 44, y - 7, 88, 15); ctx.fillStyle = textColor; ctx.fillText(link.relation, x, y + 4); }} d3VelocityDecay={0.35} cooldownTicks={120} onEngineStop={handleEngineStop} onNodeClick={(node) => onSelectNode(graph.nodes.find((item) => item.id === node.id))} enableNodeDrag={!isMock} minZoom={0.3} maxZoom={3}/>}
       <div className="zoom-controls"><button aria-label="그래프 확대" onClick={() => graphRef.current?.zoom(Math.min(3, graphRef.current.zoom() * 1.25), 200)}><Icon name="plus" size={17}/></button><button aria-label="그래프 축소" onClick={() => graphRef.current?.zoom(Math.max(0.3, graphRef.current.zoom() / 1.25), 200)}><Icon name="minus" size={17}/></button><button aria-label="그래프 화면 맞춤" onClick={fit}><Icon name="fit" size={17}/></button></div>
       <div className="graph-hint">드래그하여 이동 · 스크롤하여 확대</div>
     </div>

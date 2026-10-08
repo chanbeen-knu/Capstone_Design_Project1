@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -20,6 +21,7 @@ if not API_KEY:
     )
 
 client = genai.Client(api_key=API_KEY)
+last_chat_success = None
 
 app = FastAPI(title="Safety Agent Chat API")
 
@@ -50,6 +52,7 @@ class ChatResponse(BaseModel):
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
+    global last_chat_success
     question = request.message.strip()
     if not question:
         raise HTTPException(status_code=400, detail="message is required")
@@ -67,19 +70,21 @@ def chat(request: ChatRequest):
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail=f"Gemini request failed: {exc}"
+            status_code=502, detail="Gemini request failed."
         ) from exc
 
     answer = getattr(response, "text", None)
     if not answer:
         raise HTTPException(status_code=502, detail="Gemini returned an empty response")
 
+    last_chat_success = datetime.now(timezone.utc).isoformat()
     return ChatResponse(answer=answer)
 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL_NAME}
+    return {"status": "ok", "model": MODEL_NAME, "gemini_configured": bool(API_KEY),
+            "last_chat_success": last_chat_success}
 
 
 # ---------------------------------------------------------------------------
