@@ -3,21 +3,21 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
+from openai import OpenAI
 from pydantic import BaseModel
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+API_KEY = os.getenv("UPSTAGE_API_KEY")
+MODEL_NAME = os.getenv("UPSTAGE_MODEL", "solar-pro2")
 
 if not API_KEY:
     raise RuntimeError(
-        "GEMINI_API_KEY is not set. Copy backend/.env.example to backend/.env "
+        "UPSTAGE_API_KEY is not set. Copy backend/.env.example to backend/.env "
         "and add your key."
     )
 
-client = genai.Client(api_key=API_KEY)
+client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1")
 
 app = FastAPI(title="Safety Agent Chat API")
 
@@ -52,25 +52,22 @@ def chat(request: ChatRequest):
     if not question:
         raise HTTPException(status_code=400, detail="message is required")
 
-    contents = []
-    for turn in request.history:
-        gemini_role = "model" if turn.role == "assistant" else "user"
-        contents.append({"role": gemini_role, "parts": [{"text": turn.content}]})
-    contents.append({"role": "user", "parts": [{"text": question}]})
+    messages = [{"role": turn.role, "content": turn.content} for turn in request.history]
+    messages.append({"role": "user", "content": question})
 
     try:
-        response = client.models.generate_content(
+        response = client.chat.completions.create(
             model=MODEL_NAME,
-            contents=contents,
+            messages=messages,
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail=f"Gemini request failed: {exc}"
+            status_code=502, detail=f"Upstage request failed: {exc}"
         ) from exc
 
-    answer = getattr(response, "text", None)
+    answer = response.choices[0].message.content if response.choices else None
     if not answer:
-        raise HTTPException(status_code=502, detail="Gemini returned an empty response")
+        raise HTTPException(status_code=502, detail="Upstage returned an empty response")
 
     return ChatResponse(answer=answer)
 
