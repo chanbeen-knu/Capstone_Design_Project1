@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from pydantic import BaseModel
 
+import graph
+
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -27,7 +29,7 @@ app = FastAPI(title="Safety Agent Chat API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["POST"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
 
@@ -78,3 +80,44 @@ def chat(request: ChatRequest):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "model": MODEL_NAME}
+
+
+# ---------------------------------------------------------------------------
+#새로 추가한  Neo4j 지식그래프 API
+# ---------------------------------------------------------------------------
+
+def _neo4j_call(fn, *args):
+    """Neo4j가 꺼져 있거나 비밀번호가 틀리면 503으로 알려주기."""
+    try:
+        return fn(*args)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Neo4j 연결 실패: {exc}") from exc
+
+
+@app.get("/api/graph/health")
+def graph_health():
+    _neo4j_call(graph.ping)
+    return {"status": "ok", "neo4j": "connected"}
+
+
+@app.get("/api/objects")
+def objects():
+    """왼쪽/툴바 선택용 기인물 목록 (사례 수 많은 순)."""
+    return _neo4j_call(graph.object_list)
+
+
+@app.get("/api/graph/object/{name}")
+def object_graph(name: str, per_type: int = 6):
+    """기인물 중심 그래프 {nodes, links}."""
+    result = _neo4j_call(graph.object_graph, name, per_type)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"'{name}' 기인물을 찾을 수 없습니다")
+    return result
+
+
+@app.get("/api/cases/{case_id}")
+def case_detail(case_id: str):
+    result = _neo4j_call(graph.case_detail, case_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="사례를 찾을 수 없습니다")
+    return result

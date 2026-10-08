@@ -6,13 +6,19 @@ export const menus = [
   { id: 'experiment', label: '비교 실험', icon: 'experiment' },
   { id: 'settings', label: '설정', icon: 'settings' },
 ];
+
+ // 추가 색 설정 완료 
+
 export const nodeTypes = {
   equipment: { label: '설비', color: '#5479b8', background: '#edf2fa' },
   task: { label: '작업', color: '#559b98', background: '#eaf5f2' },
   risk: { label: '위험요인', color: '#cc914b', background: '#fcf3e7' },
+  accident: { label: '사고유형', color: '#c25b5b', background: '#fbeeee' },
   prevention: { label: '예방대책', color: '#8474b4', background: '#f1edf8' },
 };
+
 export const mockGraph = {
+  source: 'mock',
   nodes: [
     { id: 'crane', label: '크레인', type: 'equipment' },
     { id: 'lifting', label: '인양 작업', type: 'task' },
