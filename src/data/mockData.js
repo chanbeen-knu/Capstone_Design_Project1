@@ -1,18 +1,17 @@
 export const menus = [
-  { id: 'explore', label: '전체 탐색', icon: 'graph' },
-  { id: 'cases', label: '사고 사례', icon: 'document' },
-  { id: 'equipment', label: '작업 · 설비', icon: 'equipment' },
-  { id: 'prevention', label: '위험요인 · 예방대책', icon: 'shield' },
-  { id: 'experiment', label: '비교 실험', icon: 'experiment' },
+  { id: 'explore', label: '온톨로지 전체 탐색', icon: 'graph' },
+  { id: 'chat', label: '안전대책 물어보기', icon: 'chat' },
+  { id: 'cases', label: '사고 사례 조회', icon: 'document' },
+  { id: 'about', label: '프로젝트 소개', icon: 'experiment' },
   { id: 'settings', label: '설정', icon: 'settings' },
 ];
 
  // 추가 색 설정 완료 
 
 export const nodeTypes = {
-  equipment: { label: '설비', color: '#5479b8', background: '#edf2fa' },
   task: { label: '작업', color: '#559b98', background: '#eaf5f2' },
-  risk: { label: '위험요인', color: '#cc914b', background: '#fcf3e7' },
+  equipment: { label: '기인물', color: '#5479b8', background: '#edf2fa' },
+  risk: { label: '유발요인', color: '#cc914b', background: '#fcf3e7' },
   accident: { label: '사고유형', color: '#c25b5b', background: '#fbeeee' },
   prevention: { label: '예방대책', color: '#8474b4', background: '#f1edf8' },
 };
@@ -20,14 +19,14 @@ export const nodeTypes = {
 export const mockGraph = {
   source: 'mock',
   nodes: [
-    { id: 'crane', label: '크레인', type: 'equipment' },
-    { id: 'lifting', label: '인양 작업', type: 'task' },
-    { id: 'fall', label: '낙하 위험', type: 'risk' },
-    { id: 'control', label: '작업구역 통제', type: 'prevention' },
+    { id: 'lifting', label: '인양 작업', type: 'task', stage: 0 },
+    { id: 'crane', label: '크레인', type: 'equipment', stage: 1 },
+    { id: 'fall', label: '낙하 위험', type: 'risk', stage: 2 },
+    { id: 'control', label: '작업구역 통제', type: 'prevention', stage: 4 },
   ],
   links: [
-    { source: 'crane', target: 'lifting', relation: '사용되는 작업' },
-    { source: 'lifting', target: 'fall', relation: '발생 가능 위험' },
+    { source: 'lifting', target: 'crane', relation: '사용 설비' },
+    { source: 'crane', target: 'fall', relation: '발생 가능 위험' },
     { source: 'fall', target: 'control', relation: '예방대책' },
   ],
 };

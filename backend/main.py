@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -7,21 +8,28 @@ from google import genai
 from pydantic import BaseModel
 
 import graph
+from fastapi.responses import JSONResponse
+from neo4j.exceptions import Neo4jError, ServiceUnavailable
+from ontology_api import router as ontology_router
 
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
-if not API_KEY:
-    raise RuntimeError(
-        "GEMINI_API_KEY is not set. Copy backend/.env.example to backend/.env "
-        "and add your key."
-    )
+# Gemini 키가 없어도 서버는 뜹니다. 온톨로지 탐색 API는 키 없이 쓸 수 있고, /api/chat만 503을 돌려줍니다.
+client = genai.Client(api_key=API_KEY) if API_KEY else None
+last_chat_success = None
 
-client = genai.Client(api_key=API_KEY)
+app = FastAPI(title="SafeGori API (chat + ontology)")
+app.include_router(ontology_router)
 
-app = FastAPI(title="Safety Agent Chat API")
+
+@app.exception_handler(ServiceUnavailable)
+@app.exception_handler(Neo4jError)
+async def neo4j_error(_request, exc):
+    """Neo4j가 꺼져 있거나 인증이 틀리면 온톨로지 API도 503으로 알려 줍니다."""
+    return JSONResponse(status_code=503, content={"detail": f"Neo4j 연결 실패: {exc}"})
 
 # The Vite dev-server proxy (see vite.config.js) is the primary mechanism that
 # keeps the browser same-origin, so this middleware only matters for direct
@@ -50,9 +58,12 @@ class ChatResponse(BaseModel):
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
+    global last_chat_success
     question = request.message.strip()
     if not question:
         raise HTTPException(status_code=400, detail="message is required")
+    if client is None:
+        raise HTTPException(status_code=503, detail="GEMINI_API_KEY가 설정되지 않았습니다 (backend/.env)")
 
     contents = []
     for turn in request.history:
@@ -67,19 +78,21 @@ def chat(request: ChatRequest):
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail=f"Gemini request failed: {exc}"
+            status_code=502, detail="Gemini request failed."
         ) from exc
 
     answer = getattr(response, "text", None)
     if not answer:
         raise HTTPException(status_code=502, detail="Gemini returned an empty response")
 
+    last_chat_success = datetime.now(timezone.utc).isoformat()
     return ChatResponse(answer=answer)
 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL_NAME}
+    return {"status": "ok", "model": MODEL_NAME, "gemini_configured": bool(API_KEY),
+            "last_chat_success": last_chat_success}
 
 
 # ---------------------------------------------------------------------------
