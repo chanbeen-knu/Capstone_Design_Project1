@@ -30,6 +30,8 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
   const textColor = settings.dark ? '#edf5f1' : '#293b49';
   const container = useRef(null);
   const graphRef = useRef(null);
+  const fullscreenButton = useRef(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const fittedFor = useRef(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [filter, setFilter] = useState('all');
@@ -51,6 +53,29 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
     return () => observer.disconnect();
   }, []);
 
+  async function openFullscreen() {
+    setFullscreen(true);
+    try { await container.current?.requestFullscreen?.(); } catch { /* Use the viewport fallback when fullscreen is unavailable. */ }
+  }
+  async function closeFullscreen() {
+    if (document.fullscreenElement === container.current) await document.exitFullscreen();
+    setFullscreen(false);
+    fullscreenButton.current?.focus();
+  }
+  useEffect(() => {
+    const change = () => {
+      const active = document.fullscreenElement === container.current;
+      setFullscreen(active);
+      if (!active) fullscreenButton.current?.focus();
+    };
+    const escape = event => {
+      if (event.key === 'Escape') { setFullscreen(false); fullscreenButton.current?.focus(); }
+    };
+    document.addEventListener('fullscreenchange', change);
+    if (fullscreen) window.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('fullscreenchange', change); window.removeEventListener('keydown', escape); };
+  }, [fullscreen]);
+
   const fit = () => graphRef.current?.zoomToFit(350, 60);
 
   useEffect(() => {
@@ -60,6 +85,10 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
   }, [size, isMock]);
 
   useEffect(() => { setFilter('all'); }, [graph]);
+
+  useEffect(() => {
+    if (!isMock && fittedFor.current === graph && size.width && size.height) graphRef.current?.zoomToFit(0, 60);
+  }, [size, isMock, graph]);
 
   // Neo4j 그래프는 노드가 많아서 서로 더 밀어내고 연결선을 길게 해 안겹치도록 만ㄷ름.
   const hasCanvas = size.width > 0;
@@ -97,7 +126,7 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
   const legendTypes = Object.entries(nodeTypes).filter(([type]) => graph.nodes.some((node) => node.type === type));
 
   return <main className="graph-panel">
-    <header className="graph-header"><div className="eyebrow">WORKSPACE <span>/</span> {activeMenu.label}</div><div className="heading-row"><div><h1>Knowledge Graph</h1><p>산업재해 관계 탐색</p></div><span className="sample-badge"><span/> {isMock ? '샘플 데이터' : 'Neo4j 실데이터'}</span></div></header>
+    <header className="graph-header"><div className="heading-row"><h1>온톨로지 전체 탐색</h1>{isMock && <span className="sample-badge">샘플 데이터</span>}</div></header>
     <div className="graph-toolbar">
       <div className="graph-count">관계 네트워크 <span>{graph.nodes.length} nodes · {graph.links.length} links</span></div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -107,11 +136,12 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
             {objects.map((object) => <option key={object.name} value={object.name}>{object.name} ({object.cases})</option>)}
           </select>
         </label>}
-        <button className="text-button" onClick={() => { setFilter('all'); onSelectNode(null); fit(); }}><Icon name="fit" size={15}/> 전체 보기</button>
+        <button ref={fullscreenButton} className="text-button" onClick={openFullscreen}><Icon name="fit" size={15}/> 전체 보기</button>
       </div>
     </div>
     {graphError && <div className="graph-count" style={{ padding: '8px 25px', background: '#fcf3e7', color: '#9a6b2f' }}>Neo4j 그래프를 불러오지 못해 샘플 데이터를 표시합니다 · {graphError}</div>}
-    <div className="graph-canvas" ref={container}>
+    <div className={`graph-canvas ${fullscreen ? 'graph-fullscreen' : ''}`} ref={container}>
+      {fullscreen && <button className="fullscreen-exit secondary-button" onClick={closeFullscreen}>전체화면 닫기 · Esc</button>}
       <div className="canvas-caption"><span className="tiny-square"/> {caption}<span>{captionSub}</span></div>
       {size.width > 0 && <ForceGraph2D ref={graphRef} width={size.width} height={size.height} graphData={graphData} backgroundColor={canvasColor} nodeId="id" nodeLabel={(node) => describeNode(node)} nodeCanvasObject={drawNode} nodePointerAreaPaint={(node, color, ctx) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(node.x, node.y, 30, 0, Math.PI * 2); ctx.fill(); }} linkColor={() => '#bac7d0'} linkWidth={(link) => (isMock ? 1.4 : Math.min(1 + (link.count ?? 0) / 40, 5))} linkDirectionalArrowLength={6} linkDirectionalArrowRelPos={0.72} linkCanvasObjectMode={() => 'after'} linkCanvasObject={(link, ctx) => { if (!settings.relations || typeof link.source !== 'object') return; const x = (link.source.x + link.target.x) / 2; const y = (link.source.y + link.target.y) / 2; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = canvasColor; ctx.fillRect(x - 44, y - 7, 88, 15); ctx.fillStyle = textColor; ctx.fillText(link.relation, x, y + 4); }} d3VelocityDecay={0.35} cooldownTicks={120} onEngineStop={handleEngineStop} onNodeClick={(node) => onSelectNode(graph.nodes.find((item) => item.id === node.id))} enableNodeDrag={!isMock} minZoom={0.3} maxZoom={3}/>}
       <div className="zoom-controls"><button aria-label="그래프 확대" onClick={() => graphRef.current?.zoom(Math.min(3, graphRef.current.zoom() * 1.25), 200)}><Icon name="plus" size={17}/></button><button aria-label="그래프 축소" onClick={() => graphRef.current?.zoom(Math.max(0.3, graphRef.current.zoom() / 1.25), 200)}><Icon name="minus" size={17}/></button><button aria-label="그래프 화면 맞춤" onClick={fit}><Icon name="fit" size={17}/></button></div>

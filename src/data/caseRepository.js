@@ -6,7 +6,15 @@ export function loadCases() {
   }).catch(error => { archivePromise = undefined; throw error; });
   return archivePromise;
 }
+const searchCache = new WeakMap();
+const normalize = value => String(value ?? '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+function searchableText(record) {
+  if (!searchCache.has(record)) {
+    searchCache.set(record, normalize([record.group, record.category, record.task, record.summary, ...Object.values(record.fields || {})].join(' ')));
+  }
+  return searchCache.get(record);
+}
 export function filterCases(records, { query = '', group = '', category = '', task = '' }) {
-  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return records.filter(record => (!group || record.group === group) && (!category || record.category === category) && (!task || record.task === task) && terms.every(term => Object.values(record.fields).join(' ').toLocaleLowerCase().includes(term)));
+  const terms = normalize(query).split(' ').filter(Boolean);
+  return records.filter(record => (!group || record.group === group) && (!category || record.category === category) && (!task || record.task === task) && terms.every(term => searchableText(record).includes(term)));
 }
