@@ -1,4 +1,4 @@
-# Backend (FastAPI + Gemini)
+# Backend (FastAPI + Upstage Solar)
 
 ## Setup
 
@@ -8,8 +8,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env and paste your Gemini API key
+# edit .env and paste your Upstage API key
 ```
+
+The ontology endpoints can run without an Upstage key; `/api/chat` returns 503 until one is configured.
 
 ## Run
 

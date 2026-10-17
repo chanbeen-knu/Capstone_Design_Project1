@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
+from openai import OpenAI
 from pydantic import BaseModel
 
 import graph
@@ -14,11 +14,11 @@ from ontology_api import router as ontology_router
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+API_KEY = os.getenv("UPSTAGE_API_KEY")
+MODEL_NAME = os.getenv("UPSTAGE_MODEL", "solar-pro2")
 
-# Gemini 키가 없어도 서버는 뜹니다. 온톨로지 탐색 API는 키 없이 쓸 수 있고, /api/chat만 503을 돌려줍니다.
-client = genai.Client(api_key=API_KEY) if API_KEY else None
+# Upstage 키가 없어도 온톨로지 API는 사용할 수 있습니다. 채팅만 503을 돌려줍니다.
+client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1") if API_KEY else None
 last_chat_success = None
 
 app = FastAPI(title="SafeGori API (chat + ontology)")
@@ -63,27 +63,24 @@ def chat(request: ChatRequest):
     if not question:
         raise HTTPException(status_code=400, detail="message is required")
     if client is None:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY가 설정되지 않았습니다 (backend/.env)")
+        raise HTTPException(status_code=503, detail="UPSTAGE_API_KEY가 설정되지 않았습니다 (backend/.env)")
 
-    contents = []
-    for turn in request.history:
-        gemini_role = "model" if turn.role == "assistant" else "user"
-        contents.append({"role": gemini_role, "parts": [{"text": turn.content}]})
-    contents.append({"role": "user", "parts": [{"text": question}]})
+    messages = [{"role": turn.role, "content": turn.content} for turn in request.history]
+    messages.append({"role": "user", "content": question})
 
     try:
-        response = client.models.generate_content(
+        response = client.chat.completions.create(
             model=MODEL_NAME,
-            contents=contents,
+            messages=messages,
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail="Gemini request failed."
+            status_code=502, detail="Upstage request failed."
         ) from exc
 
-    answer = getattr(response, "text", None)
+    answer = response.choices[0].message.content if response.choices else None
     if not answer:
-        raise HTTPException(status_code=502, detail="Gemini returned an empty response")
+        raise HTTPException(status_code=502, detail="Upstage returned an empty response")
 
     last_chat_success = datetime.now(timezone.utc).isoformat()
     return ChatResponse(answer=answer)
@@ -91,7 +88,7 @@ def chat(request: ChatRequest):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL_NAME, "gemini_configured": bool(API_KEY),
+    return {"status": "ok", "model": MODEL_NAME, "upstage_configured": bool(API_KEY),
             "last_chat_success": last_chat_success}
 
 
