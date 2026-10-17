@@ -5,7 +5,6 @@
 굴삭기,CausalObject,굴착기,contains,1,
 크레인,CausalObject,크레인,contains,0.5,이동식·타워·천장주행 등 여러 기인물을 가리킴
 기중기,CausalObject,크레인,contains,0.5,
-호이스트,CausalObject,호이스트,contains,1,
 지게차,CausalObject,지게차,contains,1,
 포크리프트,CausalObject,지게차,contains,1,
 사다리,CausalObject,사다리,contains,1,
@@ -14,8 +13,6 @@
 고소작업대,CausalObject,고소작업대,contains,1,
 스카이차,CausalObject,고소작업대,contains,1,차량탑재형 고소작업대
 렌탈,CausalObject,고소작업대,contains,0.7,현장에서 시저형 고소작업대를 부르는 말
-컨베이어,CausalObject,컨베이어,contains,1,
-콘베이어,CausalObject,컨베이어,contains,1,표기 변형
 슬레이트,CausalObject,슬레이트,contains,1,
 썬라이트,CausalObject,채광판,contains,1,
 선라이트,CausalObject,채광판,contains,1,
@@ -24,8 +21,6 @@
 트럭,CausalObject,트럭,contains,1,
 화물차,CausalObject,트럭,contains,1,
 덤프,CausalObject,트럭,contains,0.8,
-로봇,CausalObject,로봇,contains,1,
-프레스,CausalObject,금속가공,contains,0.6,제조업 기인물은 금속가공기계·설비로 분류됨
 전선,CausalObject,충전부,contains,0.8,
 활선,CausalObject,충전부,contains,1,
 개구부,CausalObject,개구부,contains,1,
@@ -65,8 +60,6 @@ LOTO,HazardFactor,설비 미정지·미차단,exact,1,Lock-Out Tag-Out
 신호수,HazardFactor,작업계획·신호수 부재,exact,1,
 유도자,HazardFactor,작업계획·신호수 부재,exact,1,
 작업계획서,HazardFactor,작업계획·신호수 부재,exact,1,
-안전모,HazardFactor,보호구 미착용,exact,1,
-보호구,HazardFactor,보호구 미착용,exact,1,
 밀폐공간,HazardFactor,밀폐공간·유해가스 관리 미흡,exact,1,
 PPE,ControlLevel,개인보호구,exact,1,
 중처법,Period,중대재해처벌법 시행 이후,exact,1,시행 첫해(2022)와 이후를 함께 보려면 둘 다 선택

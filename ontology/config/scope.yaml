@@ -1,0 +1,5 @@
+# 적재 범위
+# 이 프로젝트는 건설업 사례만 다룹니다 (C = 건설업, M = 제조업 등).
+# 제조업 등까지 넣으려면 [C, M]으로 바꾸고 python ingest.py load 파일.xlsx 를 다시 실행하세요.
+# 범위를 줄인 뒤 이미 올라간 다른 업종 사례를 지우려면 python ingest.py prune 을 실행하세요.
+sectors: [C]

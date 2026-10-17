@@ -105,6 +105,10 @@ export interface YearRange {
 export type TaxonomyKind = 'accident_type' | 'hazard' | 'causal_object' | 'work_type' | 'industry' | 'year' | 'height';
 export type Sector = 'M' | 'C' | null;
 
+// 프로젝트 범위: 건설업만 (ontology/config/scope.yaml과 맞출 것). 두 업종이면 ['C', 'M'].
+export const SECTORS: Exclude<Sector, null>[] = ['C'];
+export const MULTI_SECTOR = SECTORS.length > 1;
+
 let BASE: string =
   ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_SIF_API as string | undefined) ??
   ''; // 기본: 같은 주소의 /api (vite.config.js의 프록시가 8000번 백엔드로 넘겨 줌)

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import SifGraph from './SifGraph';
-import { GROUP_COLOR, PERSONAS, api } from './api';
+import { GROUP_COLOR, MULTI_SECTOR, PERSONAS, api } from './api';
 import type {
   Bucket, CaseItem, Concept, GraphData, NodeStats, PatternDetail, PatternSummary, Sector, SifNode, TaxonomyKind, YearRange,
 } from './api';
@@ -15,7 +15,7 @@ const VIEWS: { k: View; name: string }[] = [
   { k: 'case', name: '사례 그래프' },
   { k: 'pattern', name: '사고 패턴' },
   { k: 'accident', name: '재해종류' },
-  { k: 'work', name: '공종·업종' },
+  { k: 'work', name: MULTI_SECTOR ? '공종·업종' : '공종' },
   { k: 'hazard', name: '유발요인' },
   { k: 'year', name: '연도·시기' },
   { k: 'height', name: '추락 높이' },
@@ -110,7 +110,7 @@ export interface SifExplorerProps {
   dark?: boolean;
 }
 
-export default function SifExplorer({ initialCase = 'SIF-M-0004', objectView, dark = false }: SifExplorerProps) {
+export default function SifExplorer({ initialCase = 'SIF-C-1357', objectView, dark = false }: SifExplorerProps) {
   const [view, setView] = useState<View>(objectView ? 'object' : 'tbox');
   const [caseId, setCaseId] = useState(initialCase);
   const [sector, setSector] = useState<Sector>(null);
@@ -155,7 +155,12 @@ export default function SifExplorer({ initialCase = 'SIF-M-0004', objectView, da
     if (view === 'pattern' || view === 'object') return;
     const p = view === 'tbox' ? api.tbox(caseId) : view === 'case' ? api.caseGraph(caseId)
       : api.taxonomy(kind!, sectorOf(view), expand, view === 'year' ? {} : years);
-    p.then(setData).catch((e: Error) => setError(e.message));
+    // 건설업만 다룰 때는 제조업 전용 클래스(업종, 고위험작업·상황)를 T-Box에서 숨깁니다.
+    const hide = MULTI_SECTOR || view !== 'tbox' ? null : new Set(['Industry', 'WorkSituation']);
+    p.then((d) => setData(hide ? {
+      nodes: d.nodes.filter((n) => !hide.has(n.id)),
+      links: d.links.filter((l) => !hide.has(String(l.source)) && !hide.has(String(l.target))),
+    } : d)).catch((e: Error) => setError(e.message));
   }, [view, caseId, sector, kind, expand, years]);
 
   // 분류 노드나 검색으로 고른 개념을 누르면: 그 아래 사례들의 분포와 목록
@@ -249,10 +254,10 @@ export default function SifExplorer({ initialCase = 'SIF-M-0004', objectView, da
             <input value={patQ} onChange={(e) => setPatQ(e.target.value)} placeholder="패턴 찾기: 포크레인, 사다리, 추락…"
               style={{ padding: '5px 8px', border: '1px solid #C3C9D0', borderRadius: 6, fontSize: 13, width: 220 }} />
           )}
-          {(view === 'accident' || view === 'hazard' || view === 'pattern') && ([null, 'M', 'C'] as Sector[]).map((s) => (
+          {MULTI_SECTOR && (view === 'accident' || view === 'hazard' || view === 'pattern') && ([null, 'M', 'C'] as Sector[]).map((s) => (
             <button key={String(s)} style={btn(sector === s)} onClick={() => { setSector(s); setSel(null); }}>{s === null ? '전체' : s === 'M' ? '제조업 등' : '건설업'}</button>
           ))}
-          {view === 'work' && (['work_type', 'industry'] as const).map((k) => (
+          {MULTI_SECTOR && view === 'work' && (['work_type', 'industry'] as const).map((k) => (
             <button key={k} style={btn(workKind === k)} onClick={() => { setWorkKind(k); setSel(null); setExpand(null); }}>{k === 'work_type' ? '건설 공종' : '제조 업종'}</button>
           ))}
           {isTaxonomy && view !== 'year' && (

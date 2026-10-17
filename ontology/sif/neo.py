@@ -350,6 +350,18 @@ class Writer:
             total += s.counters.nodes_deleted
         return total
 
+    def out_of_scope(self, sectors: list[str]) -> int:
+        return self.data('MATCH (c:AccidentCase) WHERE NOT c.sectorCode IN $s RETURN count(c) AS n', s=sectors)[0]['n']
+
+    def prune(self, sectors: list[str]) -> int:
+        """적재 범위(scope.yaml) 밖의 사례를 지웁니다. 이어서 derive·cleanup·패턴·용어를 다시 계산해야 합니다."""
+        n = self.out_of_scope(sectors)
+        self.run("""
+            MATCH (c:AccidentCase) WHERE NOT c.sectorCode IN $s
+            CALL { WITH c DETACH DELETE c } IN TRANSACTIONS OF 1000 ROWS
+        """, s=sectors)
+        return n
+
     def all_case_props(self) -> list[dict]:
         return [r['p'] for r in self.data('MATCH (c:AccidentCase) RETURN properties(c) AS p')]
 

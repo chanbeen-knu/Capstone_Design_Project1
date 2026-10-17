@@ -1,4 +1,7 @@
-"""Read the SIF archive without modifying it. Usage: python import_cases.py source.xlsx"""
+"""Read the SIF archive without modifying it.
+Usage: python import_cases.py source.xlsx          # 건설업만 (프로젝트 범위)
+       python import_cases.py source.xlsx --all    # 제조업 등 포함
+"""
 import json
 import sys
 import unicodedata
@@ -6,10 +9,13 @@ from pathlib import Path
 import openpyxl
 
 source = Path(sys.argv[1])
+include_all = '--all' in sys.argv[2:]
 workbook = openpyxl.load_workbook(source, read_only=True, data_only=True)
 records = []
 for sheet_index, sheet in enumerate(workbook.worksheets[1:], 1):
     construction = sheet.title == '아카이브(건설업)'
+    if not construction and not include_all:
+        continue  # 시트 순서(sheet_index)는 유지해서 ID가 바뀌지 않게 함
     labels = (['연번', '공종', '작업명', '단위작업명', '재해종류', '재해개요', '기인물', '재해유발요인', '위험성 감소대책(예시)'] if construction else
               ['연번', '산재업종(대분류)', '산재업종(중분류)', '산재업종(소분류)', '재해개요', '기인물', '고위험작업·상황', '재해유발요인', '위험성 감소대책(예시)'])
     count = 0

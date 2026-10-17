@@ -8,6 +8,7 @@
   python ingest.py remap                      config/ 규칙을 바꾼 뒤 이미 올라간 사례 전체에 다시 적용
   python ingest.py derive                     파생 관계(LEADS_TO, MITIGATES)만 다시 계산
   python ingest.py terms                      config/aliases.csv(용어 사전)만 다시 적용
+  python ingest.py prune                      config/scope.yaml 범위 밖 사례(예: 제조업)를 DB에서 지우고 다시 계산
   python ingest.py template                   정리 양식 엑셀(template/SIF_정리양식.xlsx) 만들기
 """
 from __future__ import annotations
@@ -138,6 +139,11 @@ def cmd_load(args, cfg):
             ids.add(x['id'])
             x['_file'] = p
             rows.append(x)
+    skipped = Counter(r['sector'] for r in rows if r['sector'] not in cfg.sectors)
+    rows = [r for r in rows if r['sector'] in cfg.sectors]
+    if skipped:
+        names = {'C': '건설업', 'M': '제조업 등'}
+        print('  적재 범위(config/scope.yaml) 밖이라 제외: ' + ', '.join(f'{names[k]} {v:,}건' for k, v in skipped.items()))
     cases = [transform(r, cfg) for r in rows]
     out = Path(args.out)
     issues, agg = write_review(cases, out)
@@ -180,7 +186,10 @@ def cmd_remap(args, cfg):
     from sif.neo import Writer, driver_from_env
     with driver_from_env() as d:
         w = Writer(d)
-        props = w.all_case_props()
+        props = [p for p in w.all_case_props() if p.get('sectorCode') in cfg.sectors]
+        extra = w.out_of_scope(cfg.sectors)
+        if extra:
+            print(f'  적재 범위 밖 사례 {extra:,}건이 DB에 남아 있습니다. 지우려면 python ingest.py prune')
         print(f'Neo4j에서 사례 {len(props):,}건을 읽었습니다. 현재 config/ 규칙으로 다시 매핑합니다.')
         cases = [transform(raw_from_props(p), cfg) for p in props]
         issues, agg = write_review(cases, Path(args.out))
@@ -257,7 +266,7 @@ def main():
     load_env()
     ap = argparse.ArgumentParser(description='SIF 아카이브 → Neo4j 적재 도구')
     sub = ap.add_subparsers(dest='cmd', required=True)
-    for name in ('check', 'init', 'derive', 'template', 'terms'):
+    for name in ('check', 'init', 'derive', 'template', 'terms', 'prune'):
         sub.add_parser(name)
     p = sub.add_parser('load')
     p.add_argument('files', nargs='+')
@@ -285,6 +294,18 @@ def main():
                 print('연결 성공')
                 for r in w.summary():
                     print(f"  {r['label']:<20}{r['n']:>8,}")
+                extra = w.out_of_scope(cfg.sectors)
+                if extra:
+                    print(f'  적재 범위(config/scope.yaml: {cfg.sectors}) 밖 사례 {extra:,}건 → python ingest.py prune 으로 정리')
+            elif args.cmd == 'prune':
+                n = w.prune(cfg.sectors)
+                print(f'적재 범위 밖 사례 {n:,}건을 지웠습니다. 파생 관계·패턴·용어를 다시 계산합니다.')
+                w.derive()
+                print(f'  정리된 빈 노드 {w.cleanup()}개')
+                from sif.patterns import coverage
+                kept = sum(r['n'] for r in w.summary() if r['label'] == 'AccidentCase')
+                print('  사고 패턴: ' + coverage(w.write_patterns(cfg.patterns), kept))
+                report_terms(w.write_terms(cfg.aliases), ROOT / 'preview')
             elif args.cmd == 'init':
                 w.init()
                 print('제약조건·인덱스를 만들었습니다.')

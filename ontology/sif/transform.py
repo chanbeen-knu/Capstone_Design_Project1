@@ -41,6 +41,7 @@ class Config:
     height_bands: list
     aliases: list
     patterns: dict
+    sectors: list
 
     @classmethod
     def load(cls, folder: str | Path = 'config') -> 'Config':
@@ -61,6 +62,7 @@ class Config:
             height_bands=_yaml(d / 'height_bands.yaml')['bands'],
             aliases=_csv(d / 'aliases.csv') if (d / 'aliases.csv').exists() else [],
             patterns=_yaml(d / 'patterns.yaml'),
+            sectors=(_yaml(d / 'scope.yaml') or {}).get('sectors', ['C', 'M']) if (d / 'scope.yaml').exists() else ['C', 'M'],
         )
         cfg.validate()
         return cfg

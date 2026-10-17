@@ -1,11 +1,10 @@
 # SIF 온톨로지 그래프 (Neo4j + react-force-graph)
 
-> **SafeGori 프로젝트 안에서의 위치:**
->  API는 `backend/ontology_api.py`(+ `backend/graph.py`), 화면은 `src/components/`에 합쳐져 있습니다.
-> 아래 문서에서 `api/`, `web/` 경로는 원래 단독 프로젝트 기준
-> 통합 내역은 `docs/ontology-integration.md`
+> **적재 범위:** `config/scope.yaml`(현재 건설업 `[C]`). 범위 밖 사례는 적재 때 제외되고, 이미 올라간 것은 `python ingest.py prune`으로 정리합니다.
+>
+> **SafeGori 프로젝트 안에서의 위치:** 이 폴더는 적재 파이프라인만 담고 있습니다. API는 `backend/ontology_api.py`(+ `backend/graph.py`), 화면은 `src/components/`에 합쳐져 있습니다. 아래 문서에서 `api/`, `web/` 경로는 원래 단독 프로젝트 기준이니 이 둘로 바꿔 읽어 주세요. 통합 내역은 `docs/ontology-integration.md`에 있습니다.
 
-공단 SIF 아카이브 엑셀을 Neo4j에 올리고, 같은 구조의 자료가 새로 생기면 계속 이어서 올려 웹페이지의 react-force-graph에 띄우기 위한 도구
+공단 SIF 아카이브 엑셀을 Neo4j에 올리고, 같은 구조의 자료가 새로 생기면 계속 이어서 올려 웹페이지의 react-force-graph에 띄우기 위한 도구입니다.
 
 ```
 엑셀 (공단 원본 그대로 / 정리 양식)
@@ -23,6 +22,8 @@ API  (/api/case, /api/tbox, /api/taxonomy ... → {nodes, links})
 웹페이지  <SifGraph> / <SifExplorer>  (react-force-graph-2d)
 ```
 
+브라우저에서 Neo4j에 직접 붙지 않고 API를 두는 이유는, 브라우저 코드에 Neo4j 비밀번호를 넣으면 페이지를 여는 누구나 볼 수 있기 때문입니다.
+
 ## 폴더
 
 | 경로 | 내용 |
@@ -36,24 +37,39 @@ API  (/api/case, /api/tbox, /api/taxonomy ... → {nodes, links})
 | `web/src/sif/` | React 컴포넌트 (`SifGraph`, `SifExplorer`, `api.ts`) |
 | `template/SIF_정리양식.xlsx` | 직접 정리해서 올릴 때 쓰는 양식 |
 
+## 1. 준비
+
+Python 3.10 이상, Neo4j 5.x (Desktop, Docker, Aura 모두 가능)
 
 ```bash
 pip install -r requirements.txt
 cp .env.example .env      # Neo4j 주소와 비밀번호 입력
 python ingest.py check    # "연결 성공"이 나오면 됩니다
+```
 
 Aura는 `NEO4J_URI=neo4j+s://xxxx.databases.neo4j.io` 형식입니다.
+
+## 2. 처음 올리기
+
+먼저 Neo4j에 쓰지 않고 결과만 확인합니다.
 
 ```bash
 python ingest.py load 한국산업안전보건공단_..._20260401.xlsx --dry-run
 ```
 
-`preview/cases_mapped.csv`에 사례별로 어떤 재해종류·기인물 분류·유발요인이 붙는지,괜찮으면 `--dry-run`을 빼고 실행
+`preview/cases_mapped.csv`에 사례별로 어떤 재해종류·기인물 분류·유발요인이 붙는지, `preview/review_needed.csv`에 사람이 확인해야 할 값이 나옵니다. 괜찮으면 `--dry-run`을 빼고 실행합니다.
 
 ```bash
 python ingest.py load 한국산업안전보건공단_..._20260401.xlsx
 ```
 
+제약조건·인덱스는 load가 알아서 만듭니다. 6,032건 기준 수십 초~몇 분 걸립니다.
+
+## 3. 자료를 추가로 올리기
+
+같은 구조라면 두 방식 모두 됩니다.
+
+**공단 원본 엑셀 그대로.** 새 버전 아카이브를 그대로 `load`하면 됩니다. 시트 이름이나 열 순서가 바뀌어도 머리글 이름(`config/columns.yaml`)으로 열을 찾습니다. 머리글 이름이 바뀌면 `columns.yaml`에 별칭만 추가하세요.
 
 **직접 정리해서.** `template/SIF_정리양식.xlsx`에 한 행에 사례 하나씩 쓰고 `load`합니다. 제조·건설 사례를 한 시트에 섞어도 되고, 재해종류가 비어 있으면 문장에서 자동 추출합니다.
 
@@ -71,7 +87,7 @@ python ingest.py load 새자료.xlsx 다른자료.xlsx
 MATCH (r:IngestRun) RETURN r.file, r.loadedAt, r.cases, r.newCases ORDER BY r.loadedAt DESC
 ```
 
-## 분류 규칙 고치기
+## 4. 분류 규칙 고치기
 
 새 자료에서 처음 보는 기인물이 나오면 `미분류`로 들어가고 `review_needed.csv`에 적힙니다. 예를 들어 "드론"이 처음 나왔다면:
 
@@ -96,7 +112,7 @@ remap은 Neo4j에 저장해 둔 원본 값(`raw_*` 속성)을 다시 읽어서 �
 
 규칙은 키워드 기반 초안이라 점선(`derived`)으로 표시됩니다. 멘토님 검토 후 규칙을 고쳐 remap하는 식으로 정확도를 올리면 됩니다.
 
-## API 실행
+## 5. API 실행
 
 ```bash
 uvicorn api.server:app --reload --port 8000
@@ -122,7 +138,7 @@ http://localhost:8000/docs 에서 모든 API를 바로 눌러 볼 수 있습니�
 
 웹페이지 주소가 다르면 `.env`의 `CORS_ORIGINS`에 넣으세요 (예: `http://localhost:5173`).
 
-## 기존 웹페이지에 붙이기
+## 6. 기존 웹페이지에 붙이기
 
 ```bash
 npm i react-force-graph-2d@1.25.5
@@ -155,7 +171,7 @@ useEffect(() => { api.caseGraph('SIF-M-0004').then(setData); }, []);
 
 `mode`는 `tbox`(클래스 상자 고정 배치), `case`(사례 중심 방사형), `taxonomy`(분류 방사형) 세 가지입니다. `persona`는 `PERSONAS` 순서(0 전체, 1 현장 안전관리자 …)이고, 그 사람에게 핵심인 관계를 주황색으로 강조합니다.
 
-## Neo4j Browser에서 확인
+## 7. Neo4j Browser에서 확인
 
 ```cypher
 // 사례 하나 펼치기 (멘토님 sif-1-4와 같은 사례)
