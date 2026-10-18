@@ -675,3 +675,49 @@ input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #428b
 .app.presenting{grid-template-columns:1fr}.presenting>.sidebar,.presenting>.mobile-bar{display:none}.presenting .story-content{max-width:1200px}.presenting .story-content section{min-height:75dvh}
 @media(max-width:1100px){.app{grid-template-columns:200px minmax(0,1fr) 300px}.app.wide{grid-template-columns:200px minmax(0,1fr)}.filter-row{flex-wrap:wrap}.filter-row label{min-width:110px}.story-content{padding:0 28px}.story-cards{grid-template-columns:1fr}.graph-search{padding:12px;gap:8px}.graph-header{padding:20px}.graph-footer{padding:10px 16px}}
 @media(max-width:900px){.app,.app.wide{grid-template-columns:minmax(0,1fr);grid-template-rows:52px minmax(0,1fr);min-width:0;height:100dvh}.mobile-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 16px;background:#202e3b;color:white}.mobile-bar button{background:#344c50;color:white;border:0;font-size:11px}.sidebar{display:none}.menu-open>.sidebar{display:flex;position:fixed;left:0;top:52px;bottom:0;width:240px;z-index:10;box-shadow:20px 0 40px #132d3330}.chat-slot:not(.expanded){display:none}.mobile-chat-open>.chat-slot:not([hidden]){display:block;position:fixed;inset:52px 0 0;z-index:5}.view-slot,.chat-slot{grid-column:1;grid-row:2}.story-content{padding:0 22px}.about-nav,.section-nav{padding:16px}.story-content section{padding:40px 0}.case-filters{padding:14px}.case-scroll{padding:0 14px 16px}.app.presenting{grid-template-rows:minmax(0,1fr)}.presenting .about-slot{grid-row:1}.graph-count>span{display:inline;margin-left:8px}.graph-header{padding:16px}.heading-row{margin-top:12px}.graph-panel h1{font-size:20px}.chat-intro{padding-bottom:20px}}
+
+/* ---------- 10/13 회의 반영: 사례 카드 3열, 사고 패턴, 흐름 강조, 그래프 전체보기 ---------- */
+.case-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.case-grid .case-card{margin-bottom:0;padding:14px;display:flex;flex-direction:column;min-width:0}
+.case-grid .case-card h2{font-size:13px;margin-bottom:6px}
+.case-grid .case-card p{font-size:11.5px;line-height:1.7}
+.case-grid .case-card .case-link{margin-top:auto;padding-top:10px}
+.case-tabs{display:flex;gap:6px;padding:0 24px 10px}
+.case-tabs button{border:1px solid #dbe6de;background:white;border-radius:7px;padding:7px 12px;font-size:12px;color:#4f6b62}
+.case-tabs button small{margin-left:6px;color:#8aa197;font-size:10px}
+.case-tabs button.active{background:#2f5044;border-color:#2f5044;color:white}
+.case-tabs button.active small{color:#cfe1d8}
+.pattern-search{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.pattern-search input{flex:1;max-width:420px;border:1px solid #dbe6de;border-radius:7px;padding:8px 10px;font-size:12px}
+.pattern-search span{font-size:11px;color:#66857c}
+.pattern-parts{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.pattern-parts span{font-size:10.5px;font-weight:600;padding:2px 7px;border:1px solid;border-radius:5px}
+.pattern-card p b{color:#2f5044}
+.level-bars{display:flex;flex-direction:column;gap:5px;margin:14px 0 6px;max-width:460px}
+.level-bars div{display:grid;grid-template-columns:86px 1fr 40px;align-items:center;gap:8px;font-size:11.5px;color:#4f6b62}
+.level-bars i{display:block;height:8px;border-radius:4px;background:#8474b4;min-width:3px}
+.level-bars b{font-weight:500;text-align:right;color:#66857c}
+.rep-case{margin-top:18px;padding-top:14px;border-top:1px solid #e0e7e9}
+.rep-case h3{font-size:12px;color:#66857c;margin:12px 0 4px}
+.rep-case p{font-size:12.5px;line-height:1.8;color:#3d5249}
+.rep-case .rep-summary{font-size:13px;color:#293b49}
+.rep-case ul{padding-left:18px;font-size:12.5px;line-height:1.8;color:#3d5249}
+.rep-case li small{margin-left:6px;font-size:10px;color:#8474b4}
+.rep-case .text-button{margin-top:10px}
+.chain-summary{margin-top:4px;color:#d2632b !important;font-size:11px}
+.graph-panel.graph-fullscreen,.graph-panel:fullscreen{width:100vw;height:100dvh;position:fixed;inset:0;z-index:60;background:var(--surface,#f8fafb);box-shadow:0 0 0 100vmax #0f1d2740}
+@media(max-width:1100px){.case-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.case-grid{grid-template-columns:minmax(0,1fr)}}
+/* 온톨로지 전체 탐색: 탐색기(SifExplorer) 안에 기존 그래프를 첫 탭으로 */
+.sif-slot>div{height:100%}
+.sif-slot .graph-panel{height:100%}
+.sif-slot .graph-panel.graph-fullscreen{height:100dvh}
+.sif-slot button{font-family:inherit}
+@media(max-width:900px){
+  .sif-explorer{display:flex!important;flex-direction:column;overflow:auto}
+  .sif-explorer>aside:first-child{flex:none;max-height:210px;overflow:auto;flex-direction:row!important;flex-wrap:wrap}
+  .sif-explorer>aside:first-child>input,.sif-explorer>aside:first-child>select{max-width:100%}
+  .sif-explorer>.sif-object-view{grid-column:auto!important;flex:none;height:750px!important;min-width:0}
+  .sif-explorer>main{flex:none;min-height:500px}
+  .sif-explorer>aside{flex:none}
+}

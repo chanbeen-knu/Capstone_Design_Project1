@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import GraphPanel from './components/GraphPanel';
+import SifExplorer from './sif/SifExplorer';
 import ChatPanel from './components/ChatPanel';
 import CasesPanel from './components/CasesPanel';
 import AboutPanel from './components/AboutPanel';
@@ -60,7 +61,7 @@ export default function App() {
   return <SettingsContext.Provider value={settings}><div className={`app wide ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${presentation ? 'presenting' : ''} ${menuOpen ? 'menu-open' : ''}`}>
     <div className="mobile-bar"><button onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>☰ 메뉴</button><strong>SafeGori</strong></div>
     <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} selectedMenu={selectedMenu} onSelectMenu={navigate} conversations={chats.conversations} activeConversation={chats.activeId} onOpenConversation={(id) => { chats.setActiveId(id); navigate('chat'); }} onNewConversation={() => { chats.newConversation(); navigate('chat'); }}/>
-    <div className="view-slot" hidden={selectedMenu !== 'explore'}><GraphPanel graph={graph} selectedMenu="explore" selectedNode={selectedNode} onSelectNode={setSelectedNode} objects={objects} currentObject={currentObject} onSelectObject={setCurrentObject} graphError={graphError}/></div>
+    <div className="view-slot sif-slot" hidden={selectedMenu !== 'explore'}><SifExplorer dark={settings.dark} objectView={<GraphPanel graph={graph} selectedMenu="explore" selectedNode={selectedNode} onSelectNode={setSelectedNode} objects={objects} currentObject={currentObject} onSelectObject={setCurrentObject} graphError={graphError}/>}/></div>
     <div className="view-slot" hidden={selectedMenu !== 'cases'}><CasesPanel/></div>
     <div className="view-slot about-slot" hidden={selectedMenu !== 'about'}><AboutPanel onNavigate={navigate} presentation={presentation} onPresentation={() => setPresentation(!presentation)}/></div>
     {selectedMenu === 'settings' && <div className="view-slot"><SettingsPanel onChange={changeSettings} onClear={chats.clearAll}/></div>}

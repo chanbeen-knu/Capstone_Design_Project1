@@ -222,3 +222,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# 온톨로지 적재 미리보기 결과
+ontology/preview/

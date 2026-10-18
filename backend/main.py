@@ -8,21 +8,28 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 import graph
+from fastapi.responses import JSONResponse
+from neo4j.exceptions import Neo4jError, ServiceUnavailable
+from ontology_api import router as ontology_router
 
 load_dotenv()
 
 API_KEY = os.getenv("UPSTAGE_API_KEY")
 MODEL_NAME = os.getenv("UPSTAGE_MODEL", "solar-pro2")
 
-if not API_KEY:
-    raise RuntimeError(
-        "UPSTAGE_API_KEY is not set. Copy backend/.env.example to backend/.env "
-        "and add your key."
-    )
+# Upstage 키가 없어도 온톨로지 API는 사용할 수 있습니다. 채팅만 503을 돌려줍니다.
+client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1") if API_KEY else None
+last_chat_success = None
 
-client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1")
+app = FastAPI(title="SafeGori API (chat + ontology)")
+app.include_router(ontology_router)
 
-app = FastAPI(title="Safety Agent Chat API")
+
+@app.exception_handler(ServiceUnavailable)
+@app.exception_handler(Neo4jError)
+async def neo4j_error(_request, exc):
+    """Neo4j가 꺼져 있거나 인증이 틀리면 온톨로지 API도 503으로 알려 줍니다."""
+    return JSONResponse(status_code=503, content={"detail": f"Neo4j 연결 실패: {exc}"})
 
 # The Vite dev-server proxy (see vite.config.js) is the primary mechanism that
 # keeps the browser same-origin, so this middleware only matters for direct
@@ -55,6 +62,8 @@ def chat(request: ChatRequest):
     question = request.message.strip()
     if not question:
         raise HTTPException(status_code=400, detail="message is required")
+    if client is None:
+        raise HTTPException(status_code=503, detail="UPSTAGE_API_KEY가 설정되지 않았습니다 (backend/.env)")
 
     messages = [{"role": turn.role, "content": turn.content} for turn in request.history]
     messages.append({"role": "user", "content": question})
@@ -66,7 +75,7 @@ def chat(request: ChatRequest):
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail=f"Upstage request failed: {exc}"
+            status_code=502, detail="Upstage request failed."
         ) from exc
 
     answer = response.choices[0].message.content if response.choices else None
@@ -79,7 +88,7 @@ def chat(request: ChatRequest):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL_NAME, "gemini_configured": bool(API_KEY),
+    return {"status": "ok", "model": MODEL_NAME, "upstage_configured": bool(API_KEY),
             "last_chat_success": last_chat_success}
 
 

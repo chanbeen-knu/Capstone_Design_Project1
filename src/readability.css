@@ -85,8 +85,6 @@ input::placeholder,.composer-area textarea::placeholder{color:var(--muted);opaci
 .case-card .case-meta { gap: 5px 8px; font-size: .7rem; margin-bottom: 7px; }
 .case-card h2 { font-size: .9rem; font-weight: 600; margin-bottom: 6px; line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
 .case-card p { font-size: .8rem; line-height: 1.65; -webkit-line-clamp: 2; }
-.graph-canvas.graph-fullscreen, .graph-canvas:fullscreen { position: fixed; inset: 0; width: 100vw; height: 100dvh; min-height: 0; z-index: 50; background: var(--page); }
-.fullscreen-exit { position: absolute; top: 18px; right: 18px; z-index: 3; box-shadow: 0 2px 8px #0001; }
 @media (max-width: 1250px) and (min-width: 1051px) { .case-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .case-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 550px) {
@@ -94,7 +92,6 @@ input::placeholder,.composer-area textarea::placeholder{color:var(--muted);opaci
   .expanded .messages, .expanded .composer-area { padding-left: 18px; padding-right: 18px; }
   .expanded .chat-intro h3 { font-size: 1.3rem; }
   .results-bar { padding: 10px 14px; }
-  .fullscreen-exit { top: 12px; right: 12px; }
   .graph-fullscreen .canvas-caption { display: none; }
 }
 
