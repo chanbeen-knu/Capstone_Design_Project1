@@ -13,17 +13,10 @@ cp .env.example .env
 
 The ontology endpoints can run without an Upstage key; `/api/chat` returns 503 until one is configured.
 
-## Frontend integration follow-up
+## Frontend integration
 
-This branch switches `/api/health` from `gemini_configured` to `upstage_configured`.
-The current `src/components/SettingsPanel.jsx` still reads `gemini_configured` and
-labels the provider Gemini, so its service status will be incorrect even when
-Upstage is configured. PR #5 is already in `main`; when that updated frontend is
-merged into this branch, update the resolved panel to read `upstage_configured`
-and show Upstage in its labels.
-Also update the Gemini descriptions in `src/components/AboutPanel.jsx` and the
-feature documentation. Verify the Settings page with an Upstage key configured
-and with the key absent.
+The frontend uses `/api/health` → `upstage_configured` for provider status.
+Conversation history and the sidebar from PR #5 are integrated with the ontology explorer.
 
 ## Run
 

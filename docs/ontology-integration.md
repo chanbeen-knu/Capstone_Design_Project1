@@ -1,6 +1,6 @@
 # 온톨로지 통합 (2026-10-16)
 
-기존 화면 구성·디자인·채팅(Gemini)·사고 사례 JSON은 그대로 두었습니다.
+기존 화면 구성·디자인·채팅(Upstage)·사고 사례 JSON은 그대로 두었습니다.
 
 ## 바뀐 것 요약
 
@@ -9,7 +9,7 @@
 | 신규 | `ontology/` | 엑셀 → Neo4j 적재 파이프라인 (`ingest.py`, 분류 규칙 `config/`) |
 | 수정 | `backend/graph.py` | 새 스키마로 질의 교체. `/api/objects`, `/api/graph/object/{name}`, `/api/cases/{id}` 응답 모양은 유지 |
 | 신규 | `backend/ontology_api.py` | 온톨로지 탐색 API 라우터 (`/api/patterns`, `/api/case`, `/api/tbox`, `/api/taxonomy`, `/api/search` 등) |
-| 수정 | `backend/main.py` | 라우터 연결. Gemini 키가 없어도 서버가 뜨고 `/api/chat`만 503 |
+| 수정 | `backend/main.py` | 라우터 연결. Upstage 키가 없어도 서버가 뜨고 `/api/chat`만 503 |
 | 수정 | `src/components/GraphPanel.jsx` | 흐름 배치(작업 → 기인물 → 유발요인 → 재해종류 → 예방대책), 경로 강조, 그래프 전체보기 |
 | 수정 | `src/components/CasesPanel.jsx` | 카드 한 줄 3개, "사고 패턴" 탭(대표 사례·원인·대책) |
 | 신규 | `src/sif/` (`SifExplorer.tsx`, `SifGraph.tsx`, `api.ts`) | 온톨로지 탐색기. 기인물 흐름·T-Box·사례 그래프·사고 패턴·재해종류·공종·업종·유발요인·연도·시기·추락 높이 9개 탭 |
@@ -42,7 +42,7 @@
 | 대표 사례·원인·대책 중심 답변 | 패턴 상세 화면에 반영. 채팅 답변 쪽은 아직 |
 | 동의어 사전 | 반영 (`ontology/config/aliases.csv` 78개, 패턴 검색에 적용. 예: 포크레인 → 굴착기) |
 | 최근 대화·새 채팅·관리자 메뉴 | 미반영 |
-| 온톨로지 기반 채팅, Cypher 템플릿 | 미반영 (`/api/chat`은 아직 Gemini 단독) |
+| 온톨로지 기반 채팅, Cypher 템플릿 | 미반영 (`/api/chat`은 아직 Upstage 단독) |
 
 ## 실행 순서
 

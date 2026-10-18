@@ -705,11 +705,19 @@ input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #428b
 .rep-case li small{margin-left:6px;font-size:10px;color:#8474b4}
 .rep-case .text-button{margin-top:10px}
 .chain-summary{margin-top:4px;color:#d2632b !important;font-size:11px}
-.graph-panel.graph-fullscreen{position:fixed;inset:0;z-index:60;background:var(--surface,#f8fafb);box-shadow:0 0 0 100vmax #0f1d2740}
+.graph-panel.graph-fullscreen,.graph-panel:fullscreen{width:100vw;height:100dvh;position:fixed;inset:0;z-index:60;background:var(--surface,#f8fafb);box-shadow:0 0 0 100vmax #0f1d2740}
 @media(max-width:1100px){.case-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.case-grid{grid-template-columns:minmax(0,1fr)}}
 /* 온톨로지 전체 탐색: 탐색기(SifExplorer) 안에 기존 그래프를 첫 탭으로 */
 .sif-slot>div{height:100%}
 .sif-slot .graph-panel{height:100%}
+.sif-slot .graph-panel.graph-fullscreen{height:100dvh}
 .sif-slot button{font-family:inherit}
-@media(max-width:900px){.sif-slot>div{grid-template-columns:minmax(0,1fr)!important}.sif-slot>div>aside:first-child{display:none}}
+@media(max-width:900px){
+  .sif-explorer{display:flex!important;flex-direction:column;overflow:auto}
+  .sif-explorer>aside:first-child{flex:none;max-height:210px;overflow:auto;flex-direction:row!important;flex-wrap:wrap}
+  .sif-explorer>aside:first-child>input,.sif-explorer>aside:first-child>select{max-width:100%}
+  .sif-explorer>.sif-object-view{grid-column:auto!important;flex:none;height:750px!important;min-width:0}
+  .sif-explorer>main{flex:none;min-height:500px}
+  .sif-explorer>aside{flex:none}
+}

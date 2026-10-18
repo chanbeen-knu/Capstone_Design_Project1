@@ -37,6 +37,8 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
   const canvasColor = settings.dark ? '#182630' : '#f8fafb';
   const textColor = settings.dark ? '#edf5f1' : '#293b49';
   const mutedColor = settings.dark ? '#8fa59b' : '#8aa197';
+  const panel = useRef(null);
+  const fullscreenButton = useRef(null);
   const container = useRef(null);
   const graphRef = useRef(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -122,12 +124,39 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
     fg.d3ReheatSimulation();
   }, [graphData, isFlow, hasCanvas, fullscreen]);
 
+  async function openFullscreen() {
+    setFullscreen(true);
+    try { await panel.current?.requestFullscreen?.(); } catch { /* Keep the viewport fallback. */ }
+  }
+  async function closeFullscreen() {
+    if (document.fullscreenElement === panel.current) await document.exitFullscreen();
+    setFullscreen(false);
+    fullscreenButton.current?.focus();
+  }
   useEffect(() => {
-    if (!fullscreen) return;
-    const close = (event) => { if (event.key === 'Escape') setFullscreen(false); };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    const change = () => {
+      const active = document.fullscreenElement === panel.current;
+      setFullscreen(active);
+      if (!active) fullscreenButton.current?.focus();
+    };
+    const escape = event => {
+      if (event.key === 'Escape' && fullscreen) {
+        setFullscreen(false);
+        fullscreenButton.current?.focus();
+      }
+    };
+    document.addEventListener('fullscreenchange', change);
+    window.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('fullscreenchange', change);
+      window.removeEventListener('keydown', escape);
+    };
   }, [fullscreen]);
+  useEffect(() => {
+    if (!size.width || !size.height) return;
+    const timer = setTimeout(() => graphRef.current?.zoomToFit(0, isFlow ? 70 : 60), 80);
+    return () => clearTimeout(timer);
+  }, [size, isFlow]);
 
   const handleEngineStop = () => { if (!isFlow) fit(); };
 
@@ -172,7 +201,7 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
     ? stages.map((s) => graph.nodes.filter((n) => n.stage === s.stage && chain.nodes.has(n.id)).map((n) => n.label)).filter((xs) => xs.length).map((xs) => xs.length > 2 ? `${xs[0]} 외 ${xs.length - 1}` : xs.join('·')).join(' → ')
     : null;
 
-  return <main className={`graph-panel ${fullscreen ? 'graph-fullscreen' : ''}`}>
+  return <main ref={panel} className={`graph-panel ${fullscreen ? 'graph-fullscreen' : ''}`}>
     <header className="graph-header"><div className="eyebrow">WORKSPACE <span>/</span> {activeMenu.label}</div><div className="heading-row"><div><h1>Knowledge Graph</h1><p>산업재해 관계 탐색</p></div><span className="sample-badge"><span/> {isMock ? '샘플 데이터' : 'Neo4j 실데이터'}</span></div></header>
     <div className="graph-toolbar">
       <div className="graph-count">관계 네트워크 <span>{graph.nodes.length} nodes · {graph.links.length} links</span></div>
@@ -184,7 +213,7 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
           </select>
         </label>}
         <button className="text-button" onClick={() => { setFilter('all'); onSelectNode(null); fit(); }}><Icon name="fit" size={15}/> 화면 맞춤</button>
-        <button className="text-button" aria-pressed={fullscreen} onClick={() => setFullscreen(!fullscreen)}>{fullscreen ? '전체보기 닫기 ✕' : '그래프 전체보기 ↗'}</button>
+        <button ref={fullscreenButton} className="text-button" aria-pressed={fullscreen} onClick={fullscreen ? closeFullscreen : openFullscreen}>{fullscreen ? '전체보기 닫기 ✕' : '그래프 전체보기 ↗'}</button>
       </div>
     </div>
     {graphError && <div className="graph-count" style={{ padding: '8px 25px', background: '#fcf3e7', color: '#9a6b2f' }}>Neo4j 그래프를 불러오지 못해 샘플 데이터를 표시합니다 · {graphError}</div>}

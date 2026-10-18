@@ -11,10 +11,11 @@ import { mockGraph } from './data/mockData';
 import { fetchObjectGraph, fetchObjects } from './api/graph';
 import './App.css';
 import './readability.css';
+import useConversations from './hooks/useConversations';
 const DEFAULT_OBJECT = '비계';
 export default function App() {
   const [settings, changeSettings] = usePreferences();
-  const [clearVersion, setClearVersion] = useState(0);
+  const chats = useConversations();
   const [selectedMenu, setSelectedMenu] = useState('explore');
   const [selectedNode, setSelectedNode] = useState(null);
   const [graph, setGraph] = useState(mockGraph);
@@ -47,26 +48,23 @@ export default function App() {
 
   const [presentation, setPresentation] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileChat, setMobileChat] = useState(false);
-  const [returnMenu, setReturnMenu] = useState('explore');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   useEffect(() => {
-    const escape = (event) => { if (event.key === 'Escape') { setPresentation(false); setMenuOpen(false); setMobileChat(false); } };
+    const escape = (event) => { if (event.key === 'Escape') { setPresentation(false); setMenuOpen(false); } };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
   }, []);
   function navigate(menu) {
-    if (menu === 'chat' && ['explore', 'cases'].includes(selectedMenu)) setReturnMenu(selectedMenu);
-    setSelectedMenu(menu); setMenuOpen(false); setMobileChat(false); setPresentation(false);
+    setSelectedMenu(menu); setMenuOpen(false); setPresentation(false);
   }
-  // 온톨로지 전체 탐색 화면은 그래프에 집중하도록 보조 채팅을 두지 않습니다 (10/13 멘토 회의).
-  const wide = ['explore', 'chat', 'about', 'settings'].includes(selectedMenu);
-  return <SettingsContext.Provider value={settings}><div className={`app ${wide ? 'wide' : ''} ${presentation ? 'presenting' : ''} ${menuOpen ? 'menu-open' : ''} ${mobileChat ? 'mobile-chat-open' : ''}`}>
-    <div className="mobile-bar"><button onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>☰ 메뉴</button><strong>SafeGori</strong>{!wide && selectedMenu !== 'explore' && <button onClick={() => setMobileChat(!mobileChat)}>{mobileChat ? '채팅 닫기' : '링키 채팅'}</button>}</div>
-    <Sidebar selectedMenu={selectedMenu} onSelectMenu={navigate}/>
+
+  return <SettingsContext.Provider value={settings}><div className={`app wide ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${presentation ? 'presenting' : ''} ${menuOpen ? 'menu-open' : ''}`}>
+    <div className="mobile-bar"><button onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>☰ 메뉴</button><strong>SafeGori</strong></div>
+    <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} selectedMenu={selectedMenu} onSelectMenu={navigate} conversations={chats.conversations} activeConversation={chats.activeId} onOpenConversation={(id) => { chats.setActiveId(id); navigate('chat'); }} onNewConversation={() => { chats.newConversation(); navigate('chat'); }}/>
     <div className="view-slot sif-slot" hidden={selectedMenu !== 'explore'}><SifExplorer dark={settings.dark} objectView={<GraphPanel graph={graph} selectedMenu="explore" selectedNode={selectedNode} onSelectNode={setSelectedNode} objects={objects} currentObject={currentObject} onSelectObject={setCurrentObject} graphError={graphError}/>}/></div>
     <div className="view-slot" hidden={selectedMenu !== 'cases'}><CasesPanel/></div>
     <div className="view-slot about-slot" hidden={selectedMenu !== 'about'}><AboutPanel onNavigate={navigate} presentation={presentation} onPresentation={() => setPresentation(!presentation)}/></div>
-    {selectedMenu === 'settings' && <div className="view-slot"><SettingsPanel onChange={changeSettings} onClear={() => setClearVersion(value => value + 1)}/></div>}
-    <div className={`chat-slot ${selectedMenu === 'chat' ? 'expanded' : ''}`} hidden={['explore', 'about', 'settings'].includes(selectedMenu)}><ChatPanel clearVersion={clearVersion} selectedNode={selectedMenu === 'explore' ? selectedNode : null} expanded={selectedMenu === 'chat'} onToggleSize={() => navigate(selectedMenu === 'chat' ? returnMenu : 'chat')}/></div>
+    {selectedMenu === 'settings' && <div className="view-slot"><SettingsPanel onChange={changeSettings} onClear={chats.clearAll}/></div>}
+    <div className="chat-slot expanded" hidden={selectedMenu !== 'chat'}><ChatPanel key={chats.activeId} messages={chats.messages} setMessages={chats.updateMessages} storageError={chats.storageError}/></div>
   </div></SettingsContext.Provider>;
 }

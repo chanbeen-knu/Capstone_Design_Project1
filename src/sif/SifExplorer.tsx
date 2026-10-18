@@ -101,7 +101,7 @@ function Bars({ title, items }: { title: string; items: Bucket[] }) {
 
 const btn = (on: boolean): CSSProperties => ({
   padding: '5px 10px', fontSize: 13, borderRadius: 6, cursor: 'pointer',
-  border: '1px solid ' + (on ? '#1C2430' : '#C3C9D0'), background: on ? '#1C2430' : '#fff', color: on ? '#fff' : '#4A5563',
+  border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'), background: on ? 'var(--selected)' : 'var(--surface)', color: on ? 'var(--accent)' : 'var(--ink)',
 });
 
 export interface SifExplorerProps {
@@ -196,7 +196,7 @@ export default function SifExplorer({ initialCase = 'SIF-M-0004', objectView, da
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr) 320px', height: '100%', minHeight: 0, fontFamily: 'inherit',
+    <div className="sif-explorer" style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr) 320px', height: '100%', minHeight: 0, fontFamily: 'inherit',
       color: dark ? '#E6E9ED' : '#1C2430', background: dark ? '#182630' : '#fff' }}>
       <aside style={{ borderRight: '1px solid #DCE0E4', padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {VIEWS.map((v) => (
@@ -234,7 +234,7 @@ export default function SifExplorer({ initialCase = 'SIF-M-0004', objectView, da
 
       {view === 'object' ? (
         // 기인물 흐름 탭: SafeGori의 기존 GraphPanel을 가운데+오른쪽 칸 전체에 그대로 표시
-        <div style={{ gridColumn: '2 / 4', minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>{objectView}</div>
+        <div className="sif-object-view" style={{ gridColumn: '2 / 4', minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>{objectView}</div>
       ) : (<>
       <main style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: '1px solid #DCE0E4', alignItems: 'center' }}>
