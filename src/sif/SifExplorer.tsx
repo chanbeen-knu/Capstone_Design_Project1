@@ -110,7 +110,7 @@ export interface SifExplorerProps {
   dark?: boolean;
 }
 
-export default function SifExplorer({ initialCase = 'SIF-M-0004', objectView, dark = false }: SifExplorerProps) {
+export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, dark = false }: SifExplorerProps) {
   const [view, setView] = useState<View>(objectView ? 'object' : 'tbox');
   const [caseId, setCaseId] = useState(initialCase);
   const [sector, setSector] = useState<Sector>(null);
