@@ -1,5 +1,5 @@
 // 다섯 가지 보기를 묶은 예시 페이지. 기존 웹페이지에 그대로 넣거나, SifGraph만 가져다 써도 됩니다.
-//   <SifExplorer initialCase="SIF-M-0004" />
+//   <SifExplorer initialCase="SIF-C-0001" />
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import SifGraph from './SifGraph';
