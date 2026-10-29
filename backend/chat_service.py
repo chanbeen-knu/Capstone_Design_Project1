@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import graph
 from chat_templates import TEMPLATES
 
-PROMPT_VERSION = 'paper-minimal-v2'
+PROMPT_VERSION = 'paper-minimal-v3'
 EVIDENCE_LIMIT = 10
 MEASURE_LIMIT = 10
 
@@ -97,14 +97,36 @@ def _short_name(name):
     return re.sub(r'^\s*\d+(?:\.\d+)*\.?\s*', '', name)
 
 
-def _unsupported(question):
+def _unsupported(question, catalog):
+    # A complete catalog name is one condition, even when its spelling contains
+    # words such as "추락", "낙하", or "또는". Check only the surrounding text.
+    remaining = question
+    names = {name for node in catalog['nodes'].values()
+             for name in (node['name'], _short_name(node['name'])) if name}
+    for name in sorted(names, key=lambda value: (-len(_normalize(value)), value)):
+        pattern = r'\s*'.join(re.escape(char) for char in _normalize(name))
+        remaining = re.sub(pattern, ' ', remaining, flags=re.IGNORECASE)
     patterns = [
         r'제조업|전\s*업종|전체\s*업종',
         r'(?:19|20)\d{2}\s*(?:년|부터|이후|이전|[~～-])|최근|작년|올해|연도별|월별',
         r'사고\s*패턴|통제위계|비교|제외|아닌|또는|혹은|\b(?:OR|NOT)\b',
         r'재해종류|사고유형|추락|낙하|끼임|충돌|감전|붕괴|전도|질식|폭발|화재',
     ]
-    return any(re.search(p, question, re.IGNORECASE) for p in patterns)
+    return any(re.search(p, remaining, re.IGNORECASE) for p in patterns)
+
+
+def _mentioned_hierarchy_nodes(question, catalog):
+    """Detect explicit hierarchy anchors independently of the LLM's scope field."""
+    mentions = []
+    normalized = _normalize(question)
+    for node in catalog['nodes'].values():
+        if node['label'] not in ('WorkType', 'Work', 'UnitWork'):
+            continue
+        terms = [node['name'], _short_name(node['name'])]
+        terms += [alias['term'] for alias in catalog['aliases'] if alias['node_id'] == node['id']]
+        if any(_normalize(term) in normalized for term in terms if term):
+            mentions.append(node)
+    return mentions
 
 
 def _complete(client, model, messages, trace, purpose):
@@ -135,6 +157,8 @@ def _interpret(question, catalog, client, model, trace):
 너의 역할은 DB 결과 생성이나 실제 조회가 아니라 질의 유형과 조건을 추출하는 것이다.
 DB 결과가 아직 없다는 이유로 지원되는 질의를 거부하지 않는다. 실제 조회는 다음 단계에서 수행한다.
 질문 속 조건을 삭제하거나 추정하지 않는다. 아래 실제 이름 목록과 동의어만 참고한다.
+실제 목록의 단일 이름 안에 포함된 '추락', '낙하', '또는'는 추가 필터나 OR 조건이 아니다.
+예를 들어 안전가시설(가설통로 또는 가설계단)은 하나의 단위작업명이다.
 출력은 JSON 객체 하나이며 아래 필드를 모두 사용한다. Cypher를 생성하지 않는다.
 intent: case_lookup / hierarchy_aggregate / measure_summary / unsupported / needs_clarification
 unit_work: 명시된 단위작업 표현 또는 null
@@ -236,8 +260,12 @@ def _plan(parsed, question, catalog):
         if parsed.unit_work or parsed.causal_object:
             raise Clarification('계층 집계는 공종·작업·단위작업 범위 하나만 지정해 주세요.')
         node = _resolve(parsed.scope, ['WorkType', 'Work', 'UnitWork'], question, catalog) if parsed.scope else None
-        if node is None and not re.search(r'건설업|공종별|전체\s*사고', question):
-            raise Clarification('집계할 공종·작업·단위작업 또는 건설업 전체 범위를 명시해 주세요.')
+        if node is None:
+            if _mentioned_hierarchy_nodes(question, catalog):
+                raise Clarification('질문에 공종·작업·단위작업이 명시되어 있지만 집계 범위를 추출하지 못했습니다. '
+                                    '대상 이름을 다시 명시해 주세요. 건설업 전체로 범위를 넓히지 않습니다.')
+            if not re.search(r'건설업|공종별', question):
+                raise Clarification('집계할 공종·작업·단위작업 또는 건설업 전체 범위를 명시해 주세요.')
         default = {'WorkType': 'Work', 'Work': 'UnitWork', 'UnitWork': 'UnitWork'}
         group_by = parsed.group_by or (default[node['label']] if node else 'WorkType')
         levels = {'WorkType': 0, 'Work': 1, 'UnitWork': 2}
@@ -296,8 +324,6 @@ def answer_question(question, history, client, model, *, trace=None, reader=read
         return result
 
     try:
-        if _unsupported(question):
-            raise Clarification('요청에 지원하지 않는 조건이 포함되어 있습니다.\n' + SUPPORT_MESSAGE)
         trace['stage'] = 'database_inspection'
         metadata = reader(CATALOG_QUERY)[0]
         if not metadata['construction_count']:
@@ -305,6 +331,8 @@ def answer_question(question, history, client, model, *, trace=None, reader=read
         if metadata['hierarchy_coverage'] != metadata['construction_count']:
             raise DataIntegrityError('건설업 데이터의 작업 계층 연결이 누락되어 있습니다.')
         nodes = {n['id']: n for key in ('unit_works', 'works', 'work_types', 'objects') for n in metadata[key]}
+        if _unsupported(question, {'nodes': nodes}):
+            raise Clarification('요청에 지원하지 않는 조건이 포함되어 있습니다.\n' + SUPPORT_MESSAGE)
         aliases = reader(ALIASES_QUERY, node_ids=sorted(nodes))
         catalog = {'nodes': nodes, 'aliases': aliases}
         trace['database_inspection'] = {

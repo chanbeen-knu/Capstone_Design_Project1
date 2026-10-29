@@ -14,7 +14,7 @@ from neo4j.exceptions import ServiceUnavailable
 
 import main
 from chat_service import (
-    ALIASES_QUERY, CATALOG_QUERY, DataIntegrityError, Interpretation,
+    ALIASES_QUERY, CATALOG_QUERY, Clarification, DataIntegrityError, Interpretation,
     CaseExplanation, _grounded_explanation, _plan, answer_question,
 )
 from chat_templates import TEMPLATES
@@ -116,15 +116,67 @@ class GraphChatTests(unittest.TestCase):
         self.assertEqual(len(llm.calls), 2)
         self.assertEqual([c['purpose'] for c in trace['llm_calls']], ['interpretation', 'explanation'])
 
-    def test_unsupported_conditions_do_not_reach_db_or_llm(self):
+    def test_unsupported_conditions_do_not_reach_retrieval_or_llm(self):
         for question in ['2020년 철근 반입 사례', '제조업 사례', '사다리 또는 굴착기 사례', '추락 사고만 조회', '철근 작업과 굴착 작업 비교']:
             with self.subTest(question=question):
                 run = reader()
                 llm = FakeLLM()
                 result = answer_question(question, [], llm, 'test', reader=run)
                 self.assertIn('지원', result)
-                self.assertEqual(run.calls, [])
+                self.assertEqual([q for q, _ in run.calls], [CATALOG_QUERY])
                 self.assertEqual(llm.calls, [])
+
+    def test_catalog_work_names_with_reserved_words_are_queryable(self):
+        names = ['13.1.6 안전가시설(추락방지망)',
+                 '13.1.7 안전가시설(가설통로 또는 가설계단)',
+                 '13.1.8 안전가시설(낙하물방지망)']
+        for name in names:
+            for mention in [name, name.split(' ', 1)[1]]:
+                with self.subTest(name=name, mention=mention):
+                    node = {'id': 'UW:' + name, 'name': name, 'label': 'UnitWork'}
+                    run = reader({CATALOG_QUERY: [{**CATALOG, 'unit_works': [U, node]}]})
+                    llm = FakeLLM(interpretation(unit_work=name), explanation())
+                    trace = {}
+                    answer_question(mention + ' 사고사례를 보여줘', [], llm, 'test', reader=run, trace=trace)
+                    self.assertEqual(trace['status'], 'ok')
+                    self.assertEqual(trace['resolved_plan']['parameters']['unit_work_id'], node['id'])
+                    self.assertEqual([q['template_id'] for q in trace['executed_queries']], ['T01', 'T04'])
+
+    def test_extra_filter_outside_a_valid_work_name_is_still_rejected(self):
+        name = '13.1.7 안전가시설(가설통로 또는 가설계단)'
+        node = {'id': 'UW:' + name, 'name': name, 'label': 'UnitWork'}
+        for suffix in [' 중 추락 사고만 보여줘', ' 또는 철근 반입 사례를 보여줘', ' 중 2020년 사례를 보여줘']:
+            with self.subTest(suffix=suffix):
+                run = reader({CATALOG_QUERY: [{**CATALOG, 'unit_works': [U, node]}]})
+                llm = FakeLLM()
+                trace = {}
+                result = answer_question(name + suffix, [], llm, 'test', reader=run, trace=trace)
+                self.assertIn('지원하지 않는 조건', result)
+                self.assertEqual(trace['executed_queries'], [])
+                self.assertEqual(llm.calls, [])
+
+    def test_omitted_named_scope_never_queries_all_construction(self):
+        for node in [WT, W, U]:
+            for mention in [node['name'], node['name'].split(' ', 1)[1]]:
+                with self.subTest(node=node, mention=mention):
+                    run = reader()
+                    llm = FakeLLM(interpretation(intent='hierarchy_aggregate', unit_work=None, scope=None, group_by='Work'))
+                    trace = {}
+                    result = answer_question(mention + '에 속한 전체 사고를 집계해줘', [], llm, 'test', reader=run, trace=trace)
+                    self.assertIn('범위를 추출하지 못했습니다', result)
+                    self.assertEqual(trace['executed_queries'], [])
+                    self.assertEqual(len(llm.calls), 1)
+
+    def test_omitted_alias_scope_requests_clarification(self):
+        catalog = {'nodes': {n['id']: n for n in [U, W, WT]},
+                   'aliases': [{'term': '철콘', 'node_id': WT['id']}]}
+        with self.assertRaisesRegex(Clarification, '범위를 추출하지 못했습니다'):
+            _plan(Interpretation(intent='hierarchy_aggregate'), '철콘 전체 사고 집계', catalog)
+
+    def test_unspecified_total_does_not_default_to_all_construction(self):
+        catalog = {'nodes': {n['id']: n for n in [U, W, WT]}, 'aliases': []}
+        with self.assertRaisesRegex(Clarification, '범위를 명시'):
+            _plan(Interpretation(intent='hierarchy_aggregate'), '전체 사고를 작업별로 집계해줘', catalog)
 
     def test_model_reported_extra_condition_is_not_dropped(self):
         llm = FakeLLM(interpretation(unsupported_conditions=['남성 근로자']))
