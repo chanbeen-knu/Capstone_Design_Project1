@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
+from chat_service import answer_question, DataIntegrityError, LLMError
 
 import graph
 from fastapi.responses import JSONResponse
@@ -18,7 +19,7 @@ API_KEY = os.getenv("UPSTAGE_API_KEY")
 MODEL_NAME = os.getenv("UPSTAGE_MODEL", "solar-pro2")
 
 # Upstage 키가 없어도 온톨로지 API는 사용할 수 있습니다. 채팅만 503을 돌려줍니다.
-client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1") if API_KEY else None
+client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1", timeout=45, max_retries=0) if API_KEY else None
 last_chat_success = None
 
 app = FastAPI(title="SafeGori API (chat + ontology)")
@@ -65,22 +66,12 @@ def chat(request: ChatRequest):
     if client is None:
         raise HTTPException(status_code=503, detail="UPSTAGE_API_KEY가 설정되지 않았습니다 (backend/.env)")
 
-    messages = [{"role": turn.role, "content": turn.content} for turn in request.history]
-    messages.append({"role": "user", "content": question})
-
     try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502, detail="Upstage request failed."
-        ) from exc
-
-    answer = response.choices[0].message.content if response.choices else None
-    if not answer:
-        raise HTTPException(status_code=502, detail="Upstage returned an empty response")
+        answer = answer_question(question, request.history, client, MODEL_NAME)
+    except LLMError as exc:
+        raise HTTPException(status_code=502, detail="Upstage request failed.") from exc
+    except DataIntegrityError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     last_chat_success = datetime.now(timezone.utc).isoformat()
     return ChatResponse(answer=answer)
