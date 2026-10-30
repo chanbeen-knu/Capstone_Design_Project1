@@ -225,3 +225,6 @@ __marimo__/
 
 # 온톨로지 적재 미리보기 결과
 ontology/preview/
+
+# Local graph-chat verification reports and execution logs
+/docs/verification/
