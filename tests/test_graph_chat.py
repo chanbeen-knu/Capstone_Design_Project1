@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from fastapi.testclient import TestClient
 from neo4j.exceptions import ServiceUnavailable
 
-import main
+import legacy_main as main
 from chat_service import (
     ALIASES_QUERY, CATALOG_QUERY, Clarification, DataIntegrityError, Interpretation,
     CaseExplanation, _grounded_explanation, _plan, answer_question,

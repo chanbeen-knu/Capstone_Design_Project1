@@ -228,3 +228,6 @@ ontology/preview/
 
 # Local graph-chat verification reports and execution logs
 /docs/verification/
+
+# Local SIF vector index and embedding batches
+/local-db/

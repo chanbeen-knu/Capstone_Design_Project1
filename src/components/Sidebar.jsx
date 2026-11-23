@@ -1,6 +1,6 @@
 import { menus } from '../data/mockData';
 import Icon from './Icon';
-export default function Sidebar({ collapsed, onToggleCollapse, selectedMenu, onSelectMenu, conversations, activeConversation, onOpenConversation, onNewConversation }) {
+export default function Sidebar({ collapsed, onToggleCollapse, selectedMenu, onSelectMenu, conversations, activeConversation, onOpenConversation, onNewConversation, onDeleteConversation }) {
   return <aside className="sidebar">
     <div className="sidebar-top"><div className="brand" aria-label="SafeGori"><span className="brand-mark"><Icon name="graph" size={24}/></span><div className="brand-text">SafeGori<small>산업 안전 지식 탐색 서비스</small></div></div>
     <button className="sidebar-toggle" onClick={onToggleCollapse} aria-label={collapsed ? '메뉴바 펼치기' : '메뉴바 접기'} title={collapsed ? '메뉴바 펼치기' : '메뉴바 접기'} aria-expanded={!collapsed}><Icon name={collapsed ? 'expand' : 'collapse'} size={18}/></button></div>
@@ -8,7 +8,15 @@ export default function Sidebar({ collapsed, onToggleCollapse, selectedMenu, onS
     <section className="recent-conversations" aria-label="최근 대화">
       <div className="recent-heading"><h2>최근 대화</h2><button onClick={onNewConversation} aria-label="새 대화 시작"><Icon name="plus" size={16}/> 새 대화</button></div>
 
-      {conversations.length ? <div className="conversation-list">{conversations.map(conversation => <button key={conversation.id} className={selectedMenu === 'chat' && activeConversation === conversation.id ? 'active' : ''} aria-current={selectedMenu === 'chat' && activeConversation === conversation.id ? 'true' : undefined} onClick={() => onOpenConversation(conversation.id)} title={conversation.title}><span>{conversation.title}</span></button>)}</div> : <p className="history-note">아직 저장된 대화가 없습니다.</p>}
+      {conversations.length ? <div className="conversation-list">{conversations.map(({ id, title }) => {
+        const active = selectedMenu === 'chat' && activeConversation === id;
+        return <div key={id} className={`conversation-row ${active ? 'active' : ''}`}>
+          <button type="button" className="conversation-open" aria-current={active ? 'true' : undefined} onClick={() => onOpenConversation(id)} title={title}><span>{title}</span></button>
+          <button type="button" className="conversation-delete" aria-label={`${title} 대화 삭제`} title="대화 삭제" onClick={() => {
+            if (window.confirm(`‘${title}’ 대화를 삭제할까요?`)) onDeleteConversation(id);
+          }}><Icon name="trash" size={16}/></button>
+        </div>;
+      })}</div> : <p className="history-note">아직 저장된 대화가 없습니다.</p>}
     </section>
     <div className="sidebar-bottom"><div className="workspace-user"><span className="user-avatar">S</span><div>안전고리<small>사고와 예방을 잇는 연결</small></div></div></div>
   </aside>;

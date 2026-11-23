@@ -60,11 +60,11 @@ export default function App() {
 
   return <SettingsContext.Provider value={settings}><div className={`app wide ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${presentation ? 'presenting' : ''} ${menuOpen ? 'menu-open' : ''}`}>
     <div className="mobile-bar"><button onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>☰ 메뉴</button><strong>SafeGori</strong></div>
-    <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} selectedMenu={selectedMenu} onSelectMenu={navigate} conversations={chats.conversations} activeConversation={chats.activeId} onOpenConversation={(id) => { chats.setActiveId(id); navigate('chat'); }} onNewConversation={() => { chats.newConversation(); navigate('chat'); }}/>
+    <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} selectedMenu={selectedMenu} onSelectMenu={navigate} conversations={chats.conversations} activeConversation={chats.activeId} onOpenConversation={(id) => { chats.setActiveId(id); navigate('chat'); }} onNewConversation={() => { chats.newConversation(); navigate('chat'); }} onDeleteConversation={chats.deleteConversation}/>
     <div className="view-slot sif-slot" hidden={selectedMenu !== 'explore'}><SifExplorer dark={settings.dark} objectView={<GraphPanel graph={graph} selectedMenu="explore" selectedNode={selectedNode} onSelectNode={setSelectedNode} objects={objects} currentObject={currentObject} onSelectObject={setCurrentObject} graphError={graphError}/>}/></div>
     <div className="view-slot" hidden={selectedMenu !== 'cases'}><CasesPanel/></div>
     <div className="view-slot about-slot" hidden={selectedMenu !== 'about'}><AboutPanel onNavigate={navigate} presentation={presentation} onPresentation={() => setPresentation(!presentation)}/></div>
     {selectedMenu === 'settings' && <div className="view-slot"><SettingsPanel onChange={changeSettings} onClear={chats.clearAll}/></div>}
-    <div className="chat-slot expanded" hidden={selectedMenu !== 'chat'}><ChatPanel key={chats.activeId} messages={chats.messages} setMessages={chats.updateMessages} storageError={chats.storageError}/></div>
+    <div className="chat-slot expanded" hidden={selectedMenu !== 'chat'}><ChatPanel key={chats.activeId} messages={chats.messages} setMessages={chats.updateMessages} storageError={chats.storageError} onNewConversation={chats.newConversation}/></div>
   </div></SettingsContext.Provider>;
 }

@@ -1,25 +1,29 @@
 import os
+import logging
+from typing import Literal
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
-from pydantic import BaseModel
-from chat_service import answer_question, DataIntegrityError, LLMError
+from openai import OpenAI, OpenAIError
+from pydantic import BaseModel, Field
 
 import graph
+import rag
+import ontology_chat
+import vector_index
 from fastapi.responses import JSONResponse
 from neo4j.exceptions import Neo4jError, ServiceUnavailable
 from ontology_api import router as ontology_router
 
 load_dotenv()
 
-API_KEY = os.getenv("UPSTAGE_API_KEY")
-MODEL_NAME = os.getenv("UPSTAGE_MODEL", "solar-pro2")
+API_KEY = os.getenv("GENERATION_API_KEY") or os.getenv("UPSTAGE_API_KEY")
+MODEL_NAME = os.getenv("GENERATION_API_MODEL") or os.getenv("UPSTAGE_MODEL", "solar-pro4")
 
 # Upstage 키가 없어도 온톨로지 API는 사용할 수 있습니다. 채팅만 503을 돌려줍니다.
-client = OpenAI(api_key=API_KEY, base_url="https://api.upstage.ai/v1", timeout=45, max_retries=0) if API_KEY else None
+client = OpenAI(api_key=API_KEY, base_url=vector_index.BASE_URL, timeout=45, max_retries=1) if API_KEY else None
 last_chat_success = None
 
 app = FastAPI(title="SafeGori API (chat + ontology)")
@@ -44,43 +48,51 @@ app.add_middleware(
 
 
 class ChatMessage(BaseModel):
-    role: str
-    content: str
+    role: Literal['user', 'assistant']
+    content: str = Field(max_length=6000)
 
 
 class ChatRequest(BaseModel):
-    message: str
-    history: list[ChatMessage] = []
+    message: str = Field(max_length=2000)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+    agent: rag.Agent = 'ontology'
 
 
-class ChatResponse(BaseModel):
-    answer: str
-
-
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/api/chat")
 def chat(request: ChatRequest):
     global last_chat_success
     question = request.message.strip()
     if not question:
-        raise HTTPException(status_code=400, detail="message is required")
-    if client is None:
-        raise HTTPException(status_code=503, detail="UPSTAGE_API_KEY가 설정되지 않았습니다 (backend/.env)")
-
+        raise HTTPException(status_code=400, detail="질문을 입력해 주세요.")
+    history = [turn.model_dump() for turn in request.history[-10:]]
     try:
-        answer = answer_question(question, request.history, client, MODEL_NAME)
-    except LLMError as exc:
-        raise HTTPException(status_code=502, detail="Upstage request failed.") from exc
-    except DataIntegrityError as exc:
+        if client is None:
+            raise HTTPException(status_code=503, detail="생성 API 키를 설정해 주세요.")
+        if request.agent == 'ontology':
+            result = ontology_chat.answer(client, MODEL_NAME, question, history)
+        else:
+            vector_index.load_index()
+            result = rag.answer(client, MODEL_NAME, request.agent, question, history)
+    except vector_index.IndexUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-
+    except (ServiceUnavailable, Neo4jError) as exc:
+        raise HTTPException(status_code=503, detail="Neo4j에 연결하거나 사례를 조회할 수 없습니다.") from exc
+    except (OpenAIError, rag.InvalidModelOutput, ValueError) as exc:
+        logging.getLogger(__name__).exception('Chat failed: agent=%s error=%s', request.agent, type(exc).__name__)
+        raise HTTPException(status_code=502, detail="검색 또는 답변 생성에 실패했습니다. 다시 시도해 주세요.") from exc
     last_chat_success = datetime.now(timezone.utc).isoformat()
-    return ChatResponse(answer=answer)
+    return result
 
 
 @app.get("/api/health")
 def health():
+    try:
+        vector_index.load_index()
+        vector = 'ready' if os.getenv('EMBEDDING_API_KEY') else 'missing_key'
+    except vector_index.IndexUnavailable as exc:
+        vector = str(exc)
     return {"status": "ok", "model": MODEL_NAME, "upstage_configured": bool(API_KEY),
-            "last_chat_success": last_chat_success}
+            "last_chat_success": last_chat_success, "vector_status": vector}
 
 
 # ---------------------------------------------------------------------------

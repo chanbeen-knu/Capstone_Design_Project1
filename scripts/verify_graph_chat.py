@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / 'backend' / '.env')
 from fastapi.testclient import TestClient
 
-import main
+import legacy_main as main
 from chat_service import ALIASES_QUERY, CATALOG_QUERY, read_query
 from chat_templates import TEMPLATES
 

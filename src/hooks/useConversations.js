@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { summarizeTitle } from '../data/conversationUtils';
 const STORAGE_KEY = 'safegori.conversations.v1';
 function loadConversations() {
@@ -12,6 +12,7 @@ function loadConversations() {
 export default function useConversations() {
   const [conversations, setConversations] = useState(loadConversations);
   const [activeId, setActiveId] = useState(() => crypto.randomUUID());
+  const deletedIds = useRef(new Set());
   const [storageError, setStorageError] = useState('');
   useEffect(() => {
     try {
@@ -20,6 +21,7 @@ export default function useConversations() {
     } catch { setStorageError('브라우저에 대화를 저장할 수 없습니다. 현재 대화는 이 화면에서만 유지됩니다.'); }
   }, [conversations]);
   function updateMessages(update) {
+    if (deletedIds.current.has(activeId)) return;
     setConversations(previous => {
       const existing = previous.find(item => item.id === activeId);
       const messages = typeof update === 'function' ? update(existing?.messages || []) : update;
@@ -33,9 +35,14 @@ export default function useConversations() {
       return [conversation, ...previous.filter(item => item.id !== activeId)];
     });
   }
+  function deleteConversation(id) {
+    deletedIds.current.add(id);
+    setConversations(previous => previous.filter(item => item.id !== id));
+    if (id === activeId) setActiveId(crypto.randomUUID());
+  }
   function clearAll() {
     setConversations([]);
     setActiveId(crypto.randomUUID());
   }
-  return { conversations, activeId, setActiveId, messages: conversations.find(item => item.id === activeId)?.messages || [], updateMessages, newConversation: () => setActiveId(crypto.randomUUID()), clearAll, storageError };
+  return { conversations, activeId, setActiveId, messages: conversations.find(item => item.id === activeId)?.messages || [], updateMessages, newConversation: () => setActiveId(crypto.randomUUID()), deleteConversation, clearAll, storageError };
 }
