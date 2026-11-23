@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeTitle, messageDay, formatMessageDate } from '../src/data/conversationUtils.js';
+import { summarizeTitle } from '../src/data/conversationUtils.js';
 import { filterCases } from '../src/data/caseRepository.js';
 
 test('conversation titles summarize the topic as a noun phrase', () => {
@@ -8,14 +8,6 @@ test('conversation titles summarize the topic as a noun phrase', () => {
   assert.equal(summarizeTitle('낙하 위험의 예방대책을 알려주세요.'), '낙하 안전대책');
   assert.equal(summarizeTitle('타워크레인과 이동식 크레인의 차이는 무엇인가요?'), '이동식 크레인 · 타워크레인 비교');
   assert.equal(summarizeTitle('안녕하세요'), '안전 상담');
-});
-test('date groups split at local midnight and missing legacy timestamps stay unknown', () => {
-  const before = { createdAt: new Date(2026, 9, 15, 23, 59).getTime() };
-  const after = { createdAt: new Date(2026, 9, 16, 0, 1).getTime() };
-  assert.notEqual(messageDay(before), messageDay(after));
-  assert.equal(messageDay(after), messageDay({ createdAt: new Date(2026, 9, 16, 12).getTime() }));
-  assert.equal(messageDay({}), 'unknown');
-  assert.equal(formatMessageDate({}), '날짜 정보 없음');
 });
 test('case search matches body and prevention text, combined terms, and category filters', () => {
   const records = [

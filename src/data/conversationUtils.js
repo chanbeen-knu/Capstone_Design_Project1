@@ -13,15 +13,6 @@ export function summarizeTitle(text = '') {
     .filter(word => !/(요|니다|까요|나요|해줘|할까|싶어|하는|할때|하던|하고|해서|되면|하면|인지|줘)$/u.test(word));
   return nouns.length ? `${[...new Set(nouns)].slice(0, 2).join(' ').slice(0, 22)} ${intent}` : intent === '작업 정보' ? '안전 상담' : intent;
 }
-export function messageDay(message) {
-  const date = new Date(message.createdAt);
-  if (!message.createdAt || !Number.isFinite(date.getTime())) return 'unknown';
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-}
-export function formatMessageDate(message, withTime = false) {
-  if (messageDay(message) === 'unknown') return '날짜 정보 없음';
-  return new Date(message.createdAt).toLocaleString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric',
-    ...(withTime ? { hour: '2-digit', minute: '2-digit', second: '2-digit' } : { weekday: 'short' }),
-  });
-}
+
+//11월14일 기준, 날짜 반환하는 함수 삭제함.(정진호)
+

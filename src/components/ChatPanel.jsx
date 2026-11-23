@@ -2,13 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import QueryGraph from './QueryGraph';
 import { useSettings } from '../settings';
-import { formatMessageDate } from '../data/conversationUtils';
 
 const labels = { ontology: '온톨로지 RAG', vector: '벡터 RAG', compare: '나란히 비교' };
-const intentLabels = {
-  advice: '주의사항', briefing: '브리핑', cases: '사례 검색', count: '건수',
-  distribution: '분포', patterns: '반복 패턴', unsupported: '지원 범위 밖',
-};
 const suggestions = [
   ['advice', '단위작업이 철근 가공 및 운반인 사고 사례를 참고해서 작업 전 주의사항을 알려줘.'],
   ['briefing', '오늘 이동식 크레인을 사용해. 관련 사고 사례를 바탕으로 1분 안전 브리핑을 만들어줘.'],
@@ -17,7 +12,7 @@ const suggestions = [
   ['distribution', '백호기가 기인물인 사고의 재해종류별 분포를 표로 보여줘.'],
   ['patterns', '백호기 사고에서 반복되는 사고 패턴을 알려줘.'],
   ['unsupported', '오늘 우리 현장에서 사고가 발생할 확률은 몇 퍼센트야?'],
-  ['count', '기인물이 타워크레인이고 재해종류가 질식인 건설업 사고는 몇 건이야?', '조회 0건 예시'],
+  ['count', '기인물이 타워크레인이고 재해종류가 질식인 건설업 사고는 몇 건이야?'],
   ['cases', '철근 반입 작업의 사고사례를 보여줘.'],
   ['distribution', '철근콘크리트 공사에 속한 전체 사고를 작업별 건수와 비율로 집계해줘.'],
   ['advice', '굴착기를 이용한 철근 반입 작업의 예방대책을 종합해줘.'],
@@ -34,12 +29,10 @@ function MeasureList({ measures }) {
   </ol>;
 }
 
-function Answer({ message, onRetry }) {
+function Answer({ message, onRetry, compare }) {
   const [graphOpen, setGraphOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [sourceLimit, setSourceLimit] = useState(sourcePageSize);
-  const intentLabel = (message.agent === 'ontology' && ontologyIntents[message.intent])
-    || intentLabels[message.intent] || message.intent;
   const hasPercent = ['work_distribution', 'condition_distribution'].includes(message.statistics?.kind);
   async function copy() {
     try {
@@ -48,12 +41,10 @@ function Answer({ message, onRetry }) {
     } catch {
       setCopyStatus('복사 실패');
     }
+    setTimeout(() => setCopyStatus(''), 2000);
   }
   return <article className="message assistant">
-    <div className="message-label">{labels[message.agent] || '이전 답변'}</div>
-    {message.intent && <div className="rag-intent">
-      intent <code>{message.intent}</code> · {intentLabel}
-    </div>}
+    {compare && <div className="message-label">{labels[message.agent]}</div>}
     <p>{message.content}</p>
     {message.follow_up && <p>{message.follow_up}</p>}
     {message.statistics?.rows?.length > 0 && <table className="rag-statistics">
@@ -77,10 +68,14 @@ function Answer({ message, onRetry }) {
       </table>
     </details>}
     {message.agent === 'ontology' && message.intent === 'advice' && message.statistics?.top_accidents
-      ? message.statistics.top_accidents.map(accident => {
-        const measures = message.measures.filter(measure => measure.accident_id === accident.id);
-        return <section key={accident.id} className="rag-sources">
-          <strong>{accident.label} 사고를 예방하려면</strong>
+      // 대책이 똑같은 재해종류는 한 문단으로 합치고, 근거 사례도 합쳐서 보여 줌
+      ? Object.values(Object.groupBy(message.statistics.top_accidents, accident => message.measures
+        .filter(measure => measure.accident_id === accident.id).map(measure => measure.id).sort().join() || accident.id)).map(group => {
+        const accident = group[0], ids = group.map(row => row.id);
+        const measures = Object.values(Object.groupBy(message.measures.filter(measure => ids.includes(measure.accident_id)), measure => measure.id))
+          .map(rows => { const case_codes = [...new Set(rows.flatMap(row => row.case_codes))].sort(); return { ...rows[0], case_codes, count: case_codes.length }; });
+        return <section key={ids.join()} className="rag-sources">
+          <strong>{group.map(row => row.label).join('·')} 사고를 예방하려면</strong>
           {(accident.measure_explanation || accident.measure_summary?.length > 0)
             ? <p>{accident.measure_explanation || accident.measure_summary.join(' ')}</p>
             : !measures.length && <p>연결된 예방대책이 없습니다.</p>}
@@ -111,12 +106,7 @@ function Answer({ message, onRetry }) {
         ? <p role="status">{message.query_graph.error}</p>
         : <QueryGraph graph={message.query_graph}/>)}
     </details>}
-    {message.metadata && <details className="rag-metadata">
-      <summary>호출 메타데이터 자세히보기</summary>
-      <pre tabIndex={0}>{JSON.stringify({ agent: message.agent, intent: message.intent,
-        status: message.status, ...message.metadata }, null, 2)}</pre>
-    </details>}
-    {!message.failed && <button type="button" className="secondary-button" onClick={copy}>{copyStatus || '답변 복사'}</button>}
+    {!message.failed && <button type="button" className="copy-button" onClick={copy} aria-label="답변 복사" title={copyStatus || '답변 복사'}><Icon name="copy" size={15}/>{copyStatus && <span>{copyStatus}</span>}</button>}
     {message.failed && <button type="button" className="secondary-button" onClick={onRetry}>이 답변 다시 시도</button>}
   </article>;
 }
@@ -212,9 +202,8 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
         <div className="chat-intro"><h1>안전대책 물어보기</h1><p>SIF 건설업 사고 사례에서 근거를 찾아 답합니다.</p></div>
         <div className="suggestions" aria-label="분류별 예시 질문">
           {suggestions.filter(([intent]) => activeMode !== 'ontology' || intent in ontologyIntents || intent === 'count')
-            .map(([intent, question, note]) => <button type="button" key={question} onClick={() => sendMessage(question)}>
-              {question}<span>{activeMode === 'ontology' && intent === 'count' ? 'distribution' : intent}
-                {' · '}{note || (activeMode === 'ontology' ? ontologyIntents[intent === 'count' ? 'distribution' : intent] : intentLabels[intent])}</span>
+            .map(([, question]) => <button type="button" key={question} onClick={() => sendMessage(question)}>
+              {question}
             </button>)}
         </div>
       </>}
@@ -223,7 +212,7 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
         : <article key={message.id} className="message user"><p>{message.content}</p></article>) : turns.map(turn => {
         const agents = turn.mode === 'compare' ? ['ontology', 'vector'] : [turn.mode];
         return <div className="rag-turn" key={turn.id}>
-          <article className="message user"><p>{turn.content}</p><time>{formatMessageDate(turn.createdAt, true)}</time></article>
+          <article className="message user"><p>{turn.content}</p></article>
           <div className={`rag-answers ${agents.length === 2 ? 'rag-compare' : ''}`}>
             {agents.map(agent => {
               const reply = messages.find(message => message.turnId === turn.id && message.agent === agent);
@@ -231,7 +220,7 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
               const previousTurns = new Set(turns.slice(0, turns.indexOf(turn)).map(item => item.id));
               const previous = messages.filter(item => previousTurns.has(item.turnId || item.id));
               if (loading) return <article className="message assistant" key={agent}><div className="message-label">{labels[agent]}</div><p>근거를 검색하고 있습니다…</p></article>;
-              if (reply) return <Answer key={agent} message={reply} onRetry={() => runTurn(turn, [agent], previous)}/>;
+              if (reply) return <Answer key={agent} message={reply} compare={agents.length === 2} onRetry={() => runTurn(turn, [agent], previous)}/>;
               return <article className="message assistant" key={agent}><div className="message-label">{labels[agent]}</div><button type="button" className="secondary-button" disabled={busy} onClick={() => runTurn(turn, [agent], previous)}>답변 요청</button></article>;
             })}
           </div>

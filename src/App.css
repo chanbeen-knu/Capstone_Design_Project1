@@ -738,17 +738,20 @@ input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #428b
 .rag-answers.rag-compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .rag-answers .message { max-width: none; min-width: 0; overflow-wrap: anywhere; }
 .rag-answers .message p { white-space: pre-wrap; }
-.rag-intent { margin: 4px 0 8px; font-size: 0.85em; }
-.rag-metadata { margin: 12px 0; font-size: 0.9em; }
-.rag-metadata summary { cursor: pointer; }
-.rag-metadata pre { max-height: 22rem; overflow: auto; font-size: 0.85em; }
+/* 채팅 글을 가운데 읽기 좋은 폭으로 (나란히 비교일 때만 넓게) */
+.rag-messages > *, .composer-area form { max-width: 768px; margin-left: auto; margin-right: auto; }
+.rag-messages > .rag-turn:has(.rag-compare) { max-width: 1200px; }
+.rag-turn > .user { max-width: 85%; }
+.rag-answers:not(.rag-compare) { width: 80%; } /* 답변이 질문 말풍선 오른쪽 끝까지 오지 않게 */
+.copy-button { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 4px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.copy-button:hover, .copy-button:focus-visible { background: var(--surface-soft); color: var(--ink); }
 .rag-messages .suggestions button { gap: 4px; flex-direction: column; }
 .rag-sources { margin-top: 12px; font-size: 0.9em; }
 .rag-sources details { margin: 8px 0 0 12px; }
 .rag-sources summary { cursor: pointer; }
 .rag-statistics { width: 100%; border-collapse: collapse; margin: 10px 0; }
 .rag-statistics th, .rag-statistics td { padding: 6px; border-bottom: 1px solid currentColor; text-align: left; }
-.rag-statistics td { text-align: right; white-space: nowrap; }
+.rag-statistics td, .rag-statistics thead th:not(:first-child) { text-align: right; white-space: nowrap; }
 @media (max-width: 680px) {
   .rag-answers.rag-compare { grid-template-columns: minmax(0, 1fr); }
 }
