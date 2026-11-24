@@ -56,6 +56,7 @@ class ChatRequest(BaseModel):
     message: str = Field(max_length=2000)
     history: list[ChatMessage] = Field(default_factory=list, max_length=20)
     agent: rag.Agent = 'ontology'
+    plan: dict | None = None  # 추가 질문 버튼: 직전 답변의 조건을 그대로 실행 (ontology_chat.FollowUp에서 검증)
 
 
 @app.post("/api/chat")
@@ -69,7 +70,7 @@ def chat(request: ChatRequest):
         if client is None:
             raise HTTPException(status_code=503, detail="생성 API 키를 설정해 주세요.")
         if request.agent == 'ontology':
-            result = ontology_chat.answer(client, MODEL_NAME, question, history)
+            result = ontology_chat.answer(client, MODEL_NAME, question, history, plan=request.plan)
         else:
             vector_index.load_index()
             result = rag.answer(client, MODEL_NAME, request.agent, question, history)

@@ -5,6 +5,8 @@ import './queryGraph.css';
 const typeLabels = {
   WorkType: '공종', Work: '작업', UnitWork: '단위작업', CausalObject: '기인물',
   AccidentType: '재해종류', AccidentCase: '사고 사례', Measure: '예방대책',
+  ObjectCategory: '기인물 분류', AccidentTypeGroup: '재해 상위분류', HazardFactor: '유발요인', HazardCategory: '유발요인 분류',
+  Year: '연도', Period: '시기', HeightBand: '추락 높이', ControlLevel: '대책 위계',
 };
 
 function NodeDetails({ node, links, nodes }) {

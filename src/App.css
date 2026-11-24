@@ -744,6 +744,11 @@ input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #428b
 .rag-turn > .user { max-width: 85%; }
 .rag-answers:not(.rag-compare) { width: 80%; } /* 답변이 질문 말풍선 오른쪽 끝까지 오지 않게 */
 .copy-button { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 4px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.follow-ups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.follow-ups button { padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 12px; cursor: pointer; }
+.follow-ups button:hover, .follow-ups button:focus-visible { background: var(--surface-soft); }
+.rag-mapping { margin: 6px 0; font-size: 11px; color: var(--muted); }
+.level-badge { display: inline-block; margin-right: 4px; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 10px; }
 .copy-button:hover, .copy-button:focus-visible { background: var(--surface-soft); color: var(--ink); }
 .rag-messages .suggestions button { gap: 4px; flex-direction: column; }
 .rag-sources { margin-top: 12px; font-size: 0.9em; }

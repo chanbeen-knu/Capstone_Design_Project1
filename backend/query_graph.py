@@ -30,8 +30,9 @@ RETURN n{.*, key:elementId(n), kinds:labels(n)} AS n,
        term{.*, key:elementId(term), kinds:labels(term)} AS term, elementId(r) AS id
 """
 
-TYPES = ('AccidentCase', 'UnitWork', 'Work', 'WorkType', 'CausalObject',
-         'AccidentType', 'Measure', 'Term')
+TYPES = ('AccidentCase', 'UnitWork', 'Work', 'WorkType', 'CausalObject', 'ObjectCategory',
+         'AccidentType', 'AccidentTypeGroup', 'HazardFactor', 'HazardCategory', 'Year', 'Period',
+         'HeightBand', 'ControlLevel', 'Measure', 'Term')
 
 
 def build(case_ids, scope, intent, statistics, measures, group_type):

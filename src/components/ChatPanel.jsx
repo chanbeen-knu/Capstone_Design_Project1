@@ -30,7 +30,31 @@ function MeasureList({ measures }) {
   </ul>;
 }
 
-function Answer({ message, onRetry, compare, question }) {
+// 새 온톨로지 답변: 결론 카드 아래 블록 하나 — 표(막대) / 대책 / 반복 유형 / 사례
+function Block({ block, intent, question }) {
+  if (block.kind === 'table') return <StatisticsCard question={question}
+    statistics={{ total: block.total, rows: block.rows, group_label: block.heading }}/>;
+  const title = block.kind === 'measures' ? (intent === 'checklist' ? '꼭 지킬 것' : '예방대책')
+    : block.kind === 'patterns' ? '반복된 사고 유형' : '사고 사례';
+  return <section className="answer-card answer-measures"><h3>{title}</h3>
+    {block.kind === 'measures' && <ol className="rag-measures">{block.items.map(item => <li key={item.id}>{item.text}<br/><small>
+      {(item.levels.length ? item.levels : ['분류 전']).map(level => <span key={level} className="level-badge">{level}</span>)}
+      {item.count.toLocaleString('ko-KR')}건에서 제시
+    </small></li>)}</ol>}
+    {block.kind === 'patterns' && <ol className="rag-measures">{block.items.map(item => <li key={item.id}>{item.name}<br/><small>
+      {item.count.toLocaleString('ko-KR')}건{item.count !== item.size && ` (전체 ${item.size.toLocaleString('ko-KR')}건)`}{item.rep && ` · 대표 ${item.rep}`}
+    </small></li>)}</ol>}
+    {block.kind === 'cases' && block.items.map(item => <details key={item.id} open={block.items.length === 1}>
+      <summary>{item.code} · {item.year}년 · {item.work} · {item.accident}</summary>
+      <p>{item.summary}</p>
+      {item.hazard && <p><strong>재해유발요인</strong> {item.hazard}</p>}
+      {item.measures && <p><strong>위험성 감소대책</strong>{'\n'}{item.measures}</p>}
+      {item.pattern && <p><small>같은 유형 {item.pattern_size.toLocaleString('ko-KR')}건: {item.pattern}</small></p>}
+    </details>)}
+  </section>;
+}
+
+function Answer({ message, onRetry, onFollowUp, compare, question }) {
   const [graphOpen, setGraphOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [sourceLimit, setSourceLimit] = useState(sourcePageSize);
@@ -49,7 +73,14 @@ function Answer({ message, onRetry, compare, question }) {
     <section className="answer-card answer-main">
       <h3>{message.failed ? '답변 요청 실패' : '핵심 답변'}</h3>
       <AnswerText text={message.content}/>
+      {message.mapping?.length > 0 && <p className="rag-mapping">{message.mapping.map(m => `${m.text} → ${m.to.join(', ')}`).join(' · ')}</p>}
     </section>
+    {message.block && <Block block={message.block} intent={message.intent} question={question}/>}
+    {message.evidence?.codes.length > 0 && <p className="rag-mapping">근거 {message.evidence.codes.join(', ')}
+      {message.evidence.total > message.evidence.codes.length && ` 외 ${(message.evidence.total - message.evidence.codes.length).toLocaleString('ko-KR')}건`}</p>}
+    {message.follow_ups?.length > 0 && <div className="follow-ups">{message.follow_ups.map(item =>
+      <button type="button" key={item.label} onClick={() => onFollowUp?.(item)}>{item.label}</button>)}</div>}
+    {!message.block && <>
     <StatisticsCard statistics={message.statistics} question={question}/>
     {message.agent === 'ontology' && message.intent === 'advice' && message.statistics?.top_accidents?.length > 0
       // 대책이 똑같은 재해종류는 한 문단으로 합치고, 근거 사례도 합쳐서 보여 줌
@@ -86,6 +117,7 @@ function Answer({ message, onRetry, compare, question }) {
       {sourceLimit < message.sources.length && <button type="button" className="secondary-button"
         onClick={() => setSourceLimit(limit => limit + sourcePageSize)}>사례 더 보기</button>}
     </details>}
+    </>}
     {message.agent === 'ontology' && message.query_graph && <details className="answer-card answer-evidence rag-sources"
       onToggle={event => setGraphOpen(event.currentTarget.open)}>
       <summary>조회 근거 그래프 보기</summary>
@@ -119,7 +151,7 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
     try {
       const response = await fetch('/api/chat', {
         method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: turn.content, agent, history }),
+        body: JSON.stringify({ message: turn.content, agent, history, ...(turn.plan && agent === 'ontology' && { plan: turn.plan }) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '질문을 처리할 수 없습니다.');
@@ -161,10 +193,11 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
     }
   }
 
-  function sendMessage(text = input) {
+  // plan: 추가 질문 버튼이 보내는 조건 — 백엔드가 LLM 없이 바로 실행
+  function sendMessage(text = input, plan) {
     const content = text.trim();
     if (!content || request.current || legacy) return;
-    const turn = { id: crypto.randomUUID(), role: 'user', content, mode: activeMode, createdAt: Date.now() };
+    const turn = { id: crypto.randomUUID(), role: 'user', content, mode: activeMode, createdAt: Date.now(), ...(plan && { plan }) };
     setMessages(previous => [...previous, turn]);
     setInput('');
     runTurn(turn, activeMode === 'compare' ? ['ontology', 'vector'] : [activeMode], messages);
@@ -208,7 +241,7 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
               const previousTurns = new Set(turns.slice(0, turns.indexOf(turn)).map(item => item.id));
               const previous = messages.filter(item => previousTurns.has(item.turnId || item.id));
               if (loading) return <article className="message assistant" key={agent}><div className="message-label">{labels[agent]}</div><p>근거를 검색하고 있습니다…</p></article>;
-              if (reply) return <Answer key={agent} message={reply} question={turn.content} compare={agents.length === 2} onRetry={() => runTurn(turn, [agent], previous)}/>;
+              if (reply) return <Answer key={agent} message={reply} question={turn.content} compare={agents.length === 2} onFollowUp={item => sendMessage(item.label, item.plan)} onRetry={() => runTurn(turn, [agent], previous)}/>;
               return <article className="message assistant" key={agent}><div className="message-label">{labels[agent]}</div><button type="button" className="secondary-button" disabled={busy} onClick={() => runTurn(turn, [agent], previous)}>답변 요청</button></article>;
             })}
           </div>
