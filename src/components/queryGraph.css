@@ -1,0 +1,98 @@
+.query-graph {
+  --query-edge: #8296a4aa;
+  --query-edge-active: #276092;
+}
+[data-theme=dark] .query-graph {
+  --query-edge: #a6b7c49e;
+  --query-edge-active: #91c6fa;
+}
+.query-graph-viewport {
+  margin-top: .65rem;
+  overflow: auto;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: .65rem;
+}
+.query-graph-stage {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 2.5rem;
+  padding: .75rem;
+}
+.query-graph-connections {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.query-tier { min-width: 0; }
+.query-tier > h4 {
+  position: relative;
+  width: fit-content;
+  margin: 0 0 .45rem;
+  padding: 0 .35rem;
+  border-radius: .25rem;
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+.query-context {
+  display: flex;
+  gap: .65rem;
+  flex-wrap: wrap;
+}
+.query-context > div { flex: 1 1 11rem; }
+.query-tier-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  min-width: 0;
+}
+.query-node-wrap { flex: 1 1 9.25rem; min-width: 0; }
+.query-node, .query-text-condition {
+  position: relative;
+  display: grid;
+  gap: .15rem;
+  width: 100%;
+  padding: .5rem .6rem;
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--node-color, #657489);
+  border-radius: .45rem;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: start;
+  font: inherit;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.query-node { cursor: pointer; }
+.query-node[data-node-type=CausalObject] { --node-color: #437db0; }
+.query-node[data-node-type=AccidentType], .query-node[data-node-type=AccidentCase] { --node-color: #c17a41; }
+.query-node[data-node-type=Measure] { --node-color: #409080; }
+.query-tier-conditions .query-node, .query-text-condition { --node-color: var(--query-edge-active); }
+.query-text-condition { width: fit-content; }
+.query-node-type { color: var(--muted); font-size: .78rem; }
+.query-node-label, .query-node-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.query-node-summary { color: var(--muted); }
+.query-node[data-related], .query-node:hover { border-color: var(--query-edge-active); }
+.query-node[aria-pressed=true], .query-node:focus-visible { outline: 2px solid var(--query-edge-active); outline-offset: 2px; }
+.query-node-more {
+  position: relative;
+  display: block;
+  margin-top: .25rem;
+  padding: .15rem .3rem;
+  border: 0;
+  border-radius: .25rem;
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.query-cases-more { margin-top: .65rem; }
+.query-graph-expanded .query-graph-viewport { max-height: 68dvh; }

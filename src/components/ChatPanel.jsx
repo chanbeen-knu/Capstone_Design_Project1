@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
+import { AnswerText, StatisticsCard } from './AnswerCards';
 import QueryGraph from './QueryGraph';
 import { useSettings } from '../settings';
 
@@ -22,18 +23,18 @@ const ontologyIntents = { cases: '사례 조회', distribution: '조건 집계',
 const sourcePageSize = 12;
 
 function MeasureList({ measures }) {
-  return <ol className="rag-measures">
+  return <ul className="rag-measures">
     {measures.map(measure => <li key={measure.id || measure.text}>
-      {measure.text}<br/><small>{measure.count != null && `등장 사례 ${measure.count}건 · `}근거 {measure.case_codes.join(', ')}</small>
+      {measure.text}<br/><small>{measure.count != null && `등장 사례 ${measure.count}건 · `}근거 {(measure.case_codes || []).join(', ')}</small>
     </li>)}
-  </ol>;
+  </ul>;
 }
 
-function Answer({ message, onRetry, compare }) {
+function Answer({ message, onRetry, compare, question }) {
   const [graphOpen, setGraphOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [sourceLimit, setSourceLimit] = useState(sourcePageSize);
-  const hasPercent = ['work_distribution', 'condition_distribution'].includes(message.statistics?.kind);
+  const measuresForAnswer = message.measures || [];
   async function copy() {
     try {
       await navigator.clipboard.writeText([message.content, message.follow_up].filter(Boolean).join('\n\n'));
@@ -45,39 +46,25 @@ function Answer({ message, onRetry, compare }) {
   }
   return <article className="message assistant">
     {compare && <div className="message-label">{labels[message.agent]}</div>}
-    <p>{message.content}</p>
-    {message.follow_up && <p>{message.follow_up}</p>}
-    {message.statistics?.rows?.length > 0 && <table className="rag-statistics">
-      <thead><tr>
-        <th scope="col">{message.statistics.group_label || { patterns: '사고 패턴', work_distribution: '작업' }[message.statistics.kind] || '재해종류'}</th>
-        <th scope="col">사례 수</th>
-        {hasPercent && <th scope="col">비율</th>}
-      </tr></thead>
-      <tbody>{message.statistics.rows.map(row => <tr key={row.label}>
-        <th scope="row">{row.label}</th><td>{row.count.toLocaleString('ko-KR')}</td>
-        {hasPercent && <td>{row.percent.toFixed(2)}%</td>}
-      </tr>)}</tbody>
-    </table>}
-    {message.statistics?.top_accidents?.length > 0 && <details className="rag-sources" open>
-      <summary>상위 재해종류</summary>
-      <table className="rag-statistics">
-        <thead><tr><th scope="col">재해종류</th><th scope="col">건수</th><th scope="col">비율</th></tr></thead>
-        <tbody>{message.statistics.top_accidents.map(row => <tr key={row.label}>
-          <th scope="row">{row.label}</th><td>{row.count.toLocaleString('ko-KR')}</td><td>{row.percent.toFixed(2)}%</td>
-        </tr>)}</tbody>
-      </table>
-    </details>}
-    {message.agent === 'ontology' && message.intent === 'advice' && message.statistics?.top_accidents
+    <section className="answer-card answer-main">
+      <h3>{message.failed ? '답변 요청 실패' : '핵심 답변'}</h3>
+      <AnswerText text={message.content}/>
+    </section>
+    <StatisticsCard statistics={message.statistics} question={question}/>
+    {message.agent === 'ontology' && message.intent === 'advice' && message.statistics?.top_accidents?.length > 0
       // 대책이 똑같은 재해종류는 한 문단으로 합치고, 근거 사례도 합쳐서 보여 줌
-      ? Object.values(Object.groupBy(message.statistics.top_accidents, accident => message.measures
+      ? Object.values(Object.groupBy(message.statistics.top_accidents, accident => measuresForAnswer
         .filter(measure => measure.accident_id === accident.id).map(measure => measure.id).sort().join() || accident.id)).map(group => {
         const accident = group[0], ids = group.map(row => row.id);
-        const measures = Object.values(Object.groupBy(message.measures.filter(measure => ids.includes(measure.accident_id)), measure => measure.id))
+        const measures = Object.values(Object.groupBy(measuresForAnswer.filter(measure => ids.includes(measure.accident_id)), measure => measure.id))
           .map(rows => { const case_codes = [...new Set(rows.flatMap(row => row.case_codes))].sort(); return { ...rows[0], case_codes, count: case_codes.length }; });
-        return <section key={ids.join()} className="rag-sources">
-          <strong>{group.map(row => row.label).join('·')} 사고를 예방하려면</strong>
-          {(accident.measure_explanation || accident.measure_summary?.length > 0)
-            ? <p>{accident.measure_explanation || accident.measure_summary.join(' ')}</p>
+        const summary = accident.measure_summary?.length
+          ? accident.measure_summary
+          : (accident.measure_explanation || '').split(/\n+|(?<=[.!?。])\s+/).map(line => line.trim()).filter(Boolean);
+        return <section key={ids.join()} className="answer-card answer-measures">
+          <h3>{group.map(row => row.label).join('·')} 사고 예방대책</h3>
+          {summary.length > 0
+            ? <ul>{summary.map((item, i) => <li key={i}>{item}</li>)}</ul>
             : !measures.length && <p>연결된 예방대책이 없습니다.</p>}
           {measures.length > 0 && <details>
             <summary>예방대책 원문 및 근거 {measures.length}종</summary>
@@ -85,8 +72,8 @@ function Answer({ message, onRetry, compare }) {
           </details>}
         </section>;
       })
-      : message.measures?.length > 0 && <MeasureList measures={message.measures}/>}
-    {message.sources?.length > 0 && <details className="rag-sources">
+      : message.measures?.length > 0 && <section className="answer-card answer-measures"><h3>예방대책</h3><MeasureList measures={message.measures}/></section>}
+    {message.sources?.length > 0 && <details className="answer-card answer-evidence rag-sources">
       <summary>근거 사례 {message.sources.length}건</summary>
       {message.sources.slice(0, sourceLimit).map((source, index) => <details key={source.id}>
         <summary>[{index + 1}] {source.code} · {source.work || source.object}</summary>
@@ -99,13 +86,14 @@ function Answer({ message, onRetry, compare }) {
       {sourceLimit < message.sources.length && <button type="button" className="secondary-button"
         onClick={() => setSourceLimit(limit => limit + sourcePageSize)}>사례 더 보기</button>}
     </details>}
-    {message.agent === 'ontology' && message.query_graph && <details className="rag-sources"
+    {message.agent === 'ontology' && message.query_graph && <details className="answer-card answer-evidence rag-sources"
       onToggle={event => setGraphOpen(event.currentTarget.open)}>
       <summary>조회 근거 그래프 보기</summary>
       {graphOpen && (message.query_graph.error
         ? <p role="status">{message.query_graph.error}</p>
         : <QueryGraph graph={message.query_graph}/>)}
     </details>}
+    {message.follow_up && <section className="answer-card answer-main"><h3>후속 질문</h3><AnswerText text={message.follow_up}/></section>}
     {!message.failed && <button type="button" className="copy-button" onClick={copy} aria-label="답변 복사" title={copyStatus || '답변 복사'}><Icon name="copy" size={15}/>{copyStatus && <span>{copyStatus}</span>}</button>}
     {message.failed && <button type="button" className="secondary-button" onClick={onRetry}>이 답변 다시 시도</button>}
   </article>;
@@ -207,8 +195,8 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
             </button>)}
         </div>
       </>}
-      {legacy ? messages.map(message => message.role === 'assistant'
-        ? <Answer key={message.id} message={message}/>
+      {legacy ? messages.map((message, index) => message.role === 'assistant'
+        ? <Answer key={message.id} message={message} question={messages.slice(0, index).findLast(item => item.role === 'user')?.content}/>
         : <article key={message.id} className="message user"><p>{message.content}</p></article>) : turns.map(turn => {
         const agents = turn.mode === 'compare' ? ['ontology', 'vector'] : [turn.mode];
         return <div className="rag-turn" key={turn.id}>
@@ -220,7 +208,7 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
               const previousTurns = new Set(turns.slice(0, turns.indexOf(turn)).map(item => item.id));
               const previous = messages.filter(item => previousTurns.has(item.turnId || item.id));
               if (loading) return <article className="message assistant" key={agent}><div className="message-label">{labels[agent]}</div><p>근거를 검색하고 있습니다…</p></article>;
-              if (reply) return <Answer key={agent} message={reply} compare={agents.length === 2} onRetry={() => runTurn(turn, [agent], previous)}/>;
+              if (reply) return <Answer key={agent} message={reply} question={turn.content} compare={agents.length === 2} onRetry={() => runTurn(turn, [agent], previous)}/>;
               return <article className="message assistant" key={agent}><div className="message-label">{labels[agent]}</div><button type="button" className="secondary-button" disabled={busy} onClick={() => runTurn(turn, [agent], previous)}>답변 요청</button></article>;
             })}
           </div>

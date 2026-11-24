@@ -757,17 +757,10 @@ input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #428b
 }
 
 .query-graph { min-width: 0; margin-top: 10px; }
-.query-graph-toolbar, .query-graph-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.query-graph-toolbar { justify-content: space-between; }
+.query-graph-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .query-graph-toolbar button + button { margin-left: 4px; }
-.query-graph-canvas { position: relative; width: 100%; overflow: hidden; border-radius: 8px; margin-top: 8px; }
-.query-graph-relation { position: absolute; bottom: 8px; left: 8px; pointer-events: none; }
-.query-graph-legend { margin-top: 8px; }
-.query-graph-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.query-graph-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .query-graph-detail { padding: 8px; overflow-wrap: anywhere; white-space: pre-wrap; }
 
-.query-graph-canvas.has-nodes { height: clamp(380px, 58vh, 620px); }
 .query-graph-expanded {
   position: fixed;
   inset: 12px;
@@ -779,4 +772,3 @@ input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #428b
   border-radius: 12px;
   box-shadow: 0 0 0 20px #17242dcc;
 }
-.query-graph-expanded .query-graph-canvas.has-nodes { height: max(320px, calc(100dvh - 245px)); }

@@ -9,7 +9,7 @@ WITH c,
   [(c)-[:OCCURRED_DURING]->(:UnitWork)-[:BROADER]->(:Work)-[r:BROADER]->(:WorkType) | r] +
   [(c)-[r:HAS_ACCIDENT_TYPE]->(:AccidentType) | r] +
   [(c)-[r:INVOLVES]->(o:CausalObject)
-     WHERE ($include_details AND $object_id IS NULL) OR o.id = $object_id
+     WHERE $object_id IS NULL OR o.id = $object_id
         OR (o)-[:BROADER]->(:CausalObject {id:$object_id}) | r] +
   [(c)-[:INVOLVES]->(:CausalObject)-[r:BROADER]->(:CausalObject {id:$object_id}) | r] +
   [(c)-[r:HAS_MEASURE]->(:Measure) WHERE $include_details AND ($top_ids IS NULL OR EXISTS {
@@ -69,9 +69,11 @@ def build(case_ids, scope, intent, statistics, measures, group_type):
                          object_id=scope.get('object', {}).get('id'), top_ids=top_ids):
         add_link(row['id'], row['relation'], row['s'], row['t'])
     conditions = [value for value in scope.values() if isinstance(value, dict)]
+    condition_node_ids = []
     for row in graph.run(CONDITIONS, conditions=conditions):
-        add_node(row['n'])
+        condition_node_ids.append(add_node(row['n']))
         if row['term'] is not None:
             add_link(row['id'], 'REFERS_TO', row['term'], row['n'])
     return dict(nodes=list(nodes.values()), links=list(links.values()), matched_case_count=len(case_ids),
-                conditions=[value['name'] for value in conditions], summary_terms=scope.get('summary_terms', []))
+                conditions=[value['name'] for value in conditions], condition_node_ids=condition_node_ids,
+                summary_terms=scope.get('summary_terms', []))

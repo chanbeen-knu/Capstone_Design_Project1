@@ -1,0 +1,50 @@
+.answer-card {
+  --card-color: #506174;
+  min-width: 0;
+  margin-block: .65rem;
+  padding: .85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--card-color) 26%, var(--surface));
+  border-inline-start: 3px solid var(--card-color);
+  border-radius: .65rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--card-color) 5%, var(--surface));
+}
+.answer-main { --card-color: #276092; }
+.answer-stats { --card-color: #694499; }
+.answer-measures { --card-color: #216f66; }
+[data-theme=dark] .answer-main { --card-color: #91c6fa; }
+[data-theme=dark] .answer-stats { --card-color: #c9abf4; }
+[data-theme=dark] .answer-measures { --card-color: #8edbc7; }
+[data-theme=dark] .answer-evidence { --card-color: #b0c1d1; }
+.answer-card h3, .answer-card > summary {
+  margin: 0;
+  color: var(--card-color);
+  font-size: .95rem;
+  font-weight: 700;
+}
+.answer-card h4, .answer-card p, .answer-card figure, .answer-card ul, .answer-card ol {
+  margin: .45rem 0 0;
+}
+.answer-card h4 { font-size: .92rem; }
+.answer-card ul, .answer-card ol { padding-inline-start: 1.45rem; }
+.answer-card li { white-space: pre-line; }
+.answer-card li + li { margin-top: .3rem; }
+.answer-card li::marker { color: var(--card-color); }
+.answer-card summary { cursor: pointer; }
+.answer-card details { margin-top: .6rem; }
+.answer-card small, .answer-card figcaption { color: var(--muted); }
+.answer-total strong { color: var(--card-color); font-size: 1.35em; }
+.answer-breakdown { margin-top: .75rem; }
+.answer-breakdown + .answer-breakdown { padding-top: .75rem; border-top: 1px solid var(--line); }
+.answer-card .answer-bars { list-style: none; padding: 0; }
+.answer-bars li { margin-bottom: .5rem; }
+.answer-bar-label { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.answer-bar-label strong { font-variant-numeric: tabular-nums; }
+.answer-bar-track { height: .4rem; overflow: hidden; border-radius: 1rem; background: color-mix(in srgb, var(--card-color) 14%, var(--surface)); }
+.answer-bar-track i { display: block; height: 100%; background: var(--card-color); border-radius: inherit; }
+.answer-table-scroll { overflow-x: auto; }
+.answer-card .rag-statistics :is(th, td) { border-color: var(--line); }
+@media (max-width: 680px) {
+  .rag-turn .rag-answers { width: 100%; }
+  .answer-card { padding: .75rem; }
+}
