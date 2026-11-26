@@ -150,6 +150,29 @@ input::placeholder,.composer-area textarea::placeholder{color:var(--muted);opaci
 @media (max-width: 1050px) {
   .sidebar-collapsed.app.wide:not(.presenting) { grid-template-columns: minmax(0, 1fr); }
   .sidebar-collapsed.menu-open>.sidebar { width: 68px; }
+  .app.wide.menu-open:has(> .sif-slot:not([hidden])) {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .app.wide.sidebar-collapsed.menu-open:has(> .sif-slot:not([hidden])) {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+  .menu-open:has(> .sif-slot:not([hidden])) > .mobile-bar { grid-column: 1 / -1; }
+  .menu-open:has(> .sif-slot:not([hidden])) > .sidebar {
+    position: static;
+    grid-area: 2 / 1;
+    width: auto;
+    box-shadow: none;
+  }
+  .menu-open > .sif-slot:not([hidden]) { grid-column: 2; }
+}
+@media (max-width: 700px) {
+  .app.wide.menu-open:has(> .sif-slot:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 56px min(30dvh, 240px) minmax(0, 1fr);
+  }
+  .menu-open:has(> .sif-slot:not([hidden])) > .sidebar { overflow: auto; }
+  .menu-open:has(> .sif-slot:not([hidden])) .recent-conversations { flex: auto; }
+  .menu-open > .sif-slot:not([hidden]) { grid-area: 3 / 1; }
 }
 @media (max-width: 550px) {
   .case-detail-header { padding: 14px; gap: 10px; }

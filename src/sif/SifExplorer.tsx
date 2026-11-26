@@ -1,6 +1,6 @@
 // 다섯 가지 보기를 묶은 예시 페이지. 기존 웹페이지에 그대로 넣거나, SifGraph만 가져다 써도 됩니다.
 //   <SifExplorer initialCase="SIF-C-0001" />
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import SifGraph from './SifGraph';
 import { GROUP_COLOR, PERSONAS, api } from './api';
@@ -24,7 +24,7 @@ const YEARS = Array.from({ length: 12 }, (_, i) => 2013 + i);
 const PART_COLOR: Record<string, string> = { 기인물: GROUP_COLOR.object, 재해종류: GROUP_COLOR.accident, 유발요인: GROUP_COLOR.hazard };
 const LEVEL_ORDER = ['제거·대체', '공학적 대책', '관리적 대책', '개인보호구'];
 
-// 사고 패턴 카드 (한 줄에 3개). 현장 작업자·교육 담당자용: 그래프 대신 대표 사례와 원인 중심.
+// 사고 패턴 카드. 현장 작업자·교육 담당자용: 그래프 대신 대표 사례와 원인 중심.
 function PatternCard({ p, onDetail, onFlow, active }: { p: PatternSummary; onDetail: () => void; onFlow: () => void; active: boolean }) {
   const rep = p.reps[0];
   const parts = ['기인물', '재해종류', '유발요인'].map((r) => p.parts.find((x) => x.role === r)).filter(Boolean);
@@ -44,7 +44,7 @@ function PatternCard({ p, onDetail, onFlow, active }: { p: PatternSummary; onDet
           <b>{rep.code}</b> {rep.summary}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 'auto' }}>
         <button onClick={onDetail} style={{ ...btn(active), fontSize: 12, padding: '3px 8px' }}>원인·대책 보기</button>
         <button onClick={onFlow} style={{ ...btn(false), fontSize: 12, padding: '3px 8px' }}>흐름 보기</button>
       </div>
@@ -72,15 +72,15 @@ function YearBars({ items }: { items: Bucket[] }) {
 }
 
 function useSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [size, setSize] = useState({ width: 800, height: 600 });
+  const [element, setElement] = useState<T | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
-    if (!ref.current) return;
+    if (!element) return;
     const ro = new ResizeObserver(([e]) => setSize({ width: e.contentRect.width, height: e.contentRect.height }));
-    ro.observe(ref.current);
+    ro.observe(element);
     return () => ro.disconnect();
-  }, []);
-  return [ref, size] as const;
+  }, [element]);
+  return [setElement, size] as const;
 }
 
 function Bars({ title, items }: { title: string; items: Bucket[] }) {
@@ -196,13 +196,12 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
   };
 
   return (
-    <div className="sif-explorer" style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr) 320px', height: '100%', minHeight: 0, fontFamily: 'inherit',
-      color: dark ? '#E6E9ED' : '#1C2430', background: dark ? '#182630' : '#fff' }}>
-      <aside style={{ borderRight: '1px solid #DCE0E4', padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="sif-explorer" style={{ color: dark ? '#E6E9ED' : '#1C2430', background: dark ? '#182630' : '#fff' }}>
+      <aside className="sif-navigation">
         {VIEWS.map((v) => (
           <button key={v.k} style={{ ...btn(view === v.k), textAlign: 'left' }} onClick={() => { setView(v.k); setSel(null); setExpand(null); }}>{v.name}</button>
         ))}
-        <div style={{ marginTop: 14, fontSize: 12, color: '#77818E' }}>지금 보는 사례</div>
+        <div className="sif-navigation-label">지금 보는 사례</div>
         <div style={{ fontWeight: 600 }}>{caseId}</div>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="사례 번호·기인물·개요로 찾기" style={{ padding: '6px 8px', border: '1px solid #C3C9D0', borderRadius: 6 }} />
         {Object.entries(byTerm).map(([term, cs]) => (
@@ -226,7 +225,7 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
             <b>{c.code}</b> {c.year ? `${c.year} · ` : ''}{c.summary.slice(0, 40)}…
           </button>
         ))}
-        <div style={{ marginTop: 14, fontSize: 12, color: '#77818E' }}>보는 사람</div>
+        <div className="sif-navigation-label">보는 사람</div>
         <select value={persona} onChange={(e) => setPersona(Number(e.target.value))} style={{ padding: 6 }}>
           {PERSONAS.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
         </select>
@@ -234,10 +233,10 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
 
       {view === 'object' ? (
         // 기인물 흐름 탭: SafeGori의 기존 GraphPanel을 가운데+오른쪽 칸 전체에 그대로 표시
-        <div className="sif-object-view" style={{ gridColumn: '2 / 4', minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>{objectView}</div>
+        <div className="sif-object-view">{objectView}</div>
       ) : (<>
-      <main style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: '1px solid #DCE0E4', alignItems: 'center' }}>
+      <main className="sif-main">
+        <div className="sif-toolbar">
           <strong style={{ marginRight: 'auto' }}>{VIEWS.find((v) => v.k === view)?.name}</strong>
           {view === 'case' && (
             <>
@@ -270,21 +269,21 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
             </span>
           )}
         </div>
-        <div ref={ref} style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div ref={ref} className="sif-content">
           {error && <div style={{ padding: 16, color: '#A32D2D' }}>API에서 데이터를 받지 못했어요: {error}</div>}
           {view === 'pattern' ? (
             <div style={{ position: 'absolute', inset: 0, overflow: 'auto', padding: 14, background: '#F7F8F6' }}>
               <div style={{ fontSize: 12.5, color: '#4A5563', marginBottom: 10 }}>
                 같은 기인물 · 재해종류 · 유발요인으로 일어난 사고를 묶었습니다. {pats ? `패턴 ${pats.total.toLocaleString()}개` : ''}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+              <div className="sif-pattern-grid">
                 {pats?.items.map((p) => (
                   <PatternCard key={p.pattern.id} p={p} active={patSel?.pattern.id === p.pattern.id}
                     onDetail={() => { setSel(null); openPatternDetail(p.pattern.id); }} onFlow={() => openPatternFlow(p)} />
                 ))}
               </div>
             </div>
-          ) : (
+          ) : size.width > 0 && size.height > 0 && (
             <SifGraph
               dark={dark}
               data={data}
@@ -300,7 +299,7 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
         </div>
       </main>
 
-      <aside style={{ borderLeft: '1px solid #DCE0E4', padding: 16, overflow: 'auto' }}>
+      <aside className="sif-detail">
         {view === 'pattern' && patSel && !sel && (
           <div>
             <div style={{ fontSize: 15, fontWeight: 600 }}>{patSel.pattern.name}</div>
@@ -382,7 +381,9 @@ function PopupGraph({ data, dark }: { data: GraphData; dark?: boolean }) {
   const [ref, size] = useSize<HTMLDivElement>();
   return (
     <div ref={ref} style={{ flex: 1, minHeight: 0 }}>
-      <SifGraph data={data} mode="case" flow width={size.width} height={size.height} dark={dark} />
+      {size.width > 0 && size.height > 0 && (
+        <SifGraph data={data} mode="case" flow width={size.width} height={size.height} dark={dark} />
+      )}
     </div>
   );
 }
