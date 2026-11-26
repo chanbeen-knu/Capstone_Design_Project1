@@ -23,7 +23,7 @@
 .answer-card h4, .answer-card p, .answer-card figure, .answer-card ul, .answer-card ol {
   margin: .45rem 0 0;
 }
-.answer-card h4 { font-size: .92rem; }
+.answer-card h4, .answer-breakdown > details > summary { font-size: .92rem; }
 .answer-card ul, .answer-card ol { padding-inline-start: 1.45rem; }
 .answer-card li { white-space: pre-line; }
 .answer-card li + li { margin-top: .3rem; }
@@ -36,10 +36,9 @@
 .answer-breakdown + .answer-breakdown { padding-top: .75rem; border-top: 1px solid var(--line); }
 .answer-pie-layout {
   --pie-width: 18rem;
-  --pie-legend-width: 14.9rem;
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, var(--pie-width)) minmax(0, var(--pie-legend-width));
+  grid-template-columns: minmax(0, var(--pie-width)) fit-content(30rem);
   justify-content: center;
   align-items: center;
   gap: clamp(1rem, 4cqi, 2.4rem);
@@ -48,6 +47,7 @@
 .answer-pie {
   display: block;
   width: 100%;
+  max-width: var(--pie-width);
   aspect-ratio: 1;
   border-radius: 50%;
   border: 1px solid var(--line);
@@ -81,39 +81,52 @@
   pointer-events: none;
 }
 .answer-pie-tooltip[data-below=true] { transform: translate(-50%, .6rem); }
+.answer-pie-legend-scroll { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
 .answer-card .answer-pie-legend {
-  display: grid;
-  width: min(100%, var(--pie-legend-width));
-  justify-self: center;
-  gap: .4rem;
+  display: table;
+  width: max-content;
+  border-spacing: .65rem .5rem;
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: .875rem;
   line-height: 1.4;
 }
-.answer-pie-legend li {
-  display: grid;
-  grid-template-columns: .75rem minmax(0, 1fr) 3.7rem 3.1rem;
-  align-items: baseline;
-  gap: .35rem;
-  overflow-wrap: anywhere;
-}
-.answer-pie-legend li + li { margin: 0; }
+.answer-pie-legend li { display: table-row; }
+.answer-pie-legend li > * { display: table-cell; vertical-align: middle; white-space: nowrap; }
 .answer-pie-swatch { width: .75rem; height: .75rem; border-radius: .2rem; }
-.answer-pie-value { white-space: nowrap; text-align: center; font-variant-numeric: tabular-nums; }
+.answer-pie-legend .answer-pie-swatch { display: inline-block; vertical-align: middle; }
+.answer-pie-value { white-space: nowrap; text-align: end; font-variant-numeric: tabular-nums; }
 .answer-breakdown figcaption { font-size: .75rem; text-align: center; }
-@container (max-width: 33rem) {
+@container (max-width: 36rem) {
   .answer-pie-layout {
-    grid-template-columns: minmax(0, var(--pie-width));
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
     gap: 1rem;
   }
 }
 @container (max-width: 15rem) {
   .answer-pie-label { display: none; }
 }
+.answer-year-chart { overflow-x: auto; scrollbar-width: thin; }
+.answer-year-chart svg {
+  display: block;
+  width: 100%;
+  min-width: var(--year-chart-width);
+  max-width: calc(var(--year-chart-width) + 10rem);
+  height: auto;
+  margin-inline: auto;
+}
+.answer-year-gridline { stroke: var(--line); stroke-width: 1; }
+.answer-year-heading, .answer-breakdown > details > summary { font-weight: 400; }
+.answer-year-axis-label, .answer-year-count { font-size: 9px; font-weight: 400; }
+.answer-year-axis-label { fill: var(--muted); }
+.answer-year-count { fill: var(--ink); }
+.answer-year-line { fill: none; stroke: var(--card-color); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.answer-year-dot { fill: var(--surface); stroke: var(--card-color); stroke-width: 1.75; }
 .answer-table-scroll { overflow-x: auto; }
 .answer-card .rag-statistics :is(th, td) { border-color: var(--line); }
+.answer-card .rag-statistics tbody th { font-weight: 400; }
 .answer-case-header {
   display: flex;
   flex-wrap: wrap;

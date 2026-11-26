@@ -1,6 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from './Icon';
+import YearTrend from './YearTrend';
 import './answerCards.css';
 
 // Preserve explicit numbering and keep wrapped lines with their item.
@@ -168,31 +169,71 @@ const otherColor = '#d5dce4';
 const piePercent = new Intl.NumberFormat('ko-KR', { style: 'percent', maximumFractionDigits: 1 });
 const pieRadius = 50;
 const pieLabelSize = 4.6;
+const pieLabelLineHeight = 5.7;
 
 function piePoint(turn, radius = pieRadius) {
   const angle = 2 * Math.PI * turn;
   return [pieRadius + radius * Math.sin(angle), pieRadius - radius * Math.cos(angle)];
 }
 
+function pieTextWidth(text) {
+  return Array.from(text).reduce((width, char) => {
+    if (/\s|[·.,]/u.test(char)) return width + .4;
+    return width + (char.charCodeAt(0) < 128 ? .75 : 1);
+  }, 0) * pieLabelSize;
+}
+
 function pieLabelBox(label, start, end) {
   if (typeof label !== 'string' || !label.trim()) return null;
+  const text = label.trim().replace(/\s+/g, ' ');
+  const chars = Array.from(text);
+  const splits = [];
+  for (let index = 1; index < chars.length; index += 1) {
+    if (chars[index] === ' ') continue;
+    const lines = [chars.slice(0, index).join('').trimEnd(), chars.slice(index).join('')];
+    const width = Math.max(...lines.map(pieTextWidth));
+    splits.push({ lines, width, wordBreak: /[ ·/]/.test(chars[index - 1]) });
+  }
+  splits.sort((a, b) => Number(b.wordBreak) - Number(a.wordBreak) || a.width - b.width);
+  const layouts = [{ lines: [text], width: pieTextWidth(text) }, ...splits];
   const share = end - start;
-  const distance = share === 1 ? 0 : 30;
-  const width = Array.from(label).length * pieLabelSize + 4;
-  const height = pieLabelSize + 3;
-  // Check the whole box against the sector edges and the rim.
-  const radius = Math.hypot(width / 2, height / 2);
-  const edge = distance === 0 ? pieRadius : distance * Math.sin(Math.min(Math.PI / 2, Math.PI * share));
-  if (radius > Math.min(edge, pieRadius - distance - 1)) return null;
-  const [x, y] = piePoint((start + end) / 2, distance);
-  return { x, y, width, height };
+  const distances = share === 1 ? [0] : [30, 34, 26, 37];
+
+  for (const { lines, width: textWidth } of layouts) {
+    const width = textWidth + 4;
+    const height = pieLabelSize + 3 + (lines.length - 1) * pieLabelLineHeight;
+    const halfWidth = width / 2 + .8;
+    const halfHeight = height / 2 + .8;
+    for (const distance of distances) {
+      const [x, y] = piePoint((start + end) / 2, distance);
+      const cx = x - pieRadius;
+      const cy = y - pieRadius;
+      if (share < 1 && Math.abs(cx) <= halfWidth && Math.abs(cy) <= halfHeight) continue;
+      // Keep the label box clear of the wedges and the outer circle.
+      const fits = [-halfWidth, halfWidth].every(dx => [-halfHeight, halfHeight].every(dy => {
+        const turn = Math.atan2(cx + dx, -(cy + dy)) / (2 * Math.PI);
+        return Math.hypot(cx + dx, cy + dy) < pieRadius - 1 && (share === 1 || (turn - start + 2) % 1 < share);
+      }));
+      if (fits) return { x, y, width, height, lines };
+    }
+  }
+  return null;
 }
 
 function PieChart({ slices, total, title }) {
   const layout = useRef(null);
   const [hover, setHover] = useState(null);
   const hovered = hover && slices[hover.index];
-  let end = 0;
+  const sectors = useMemo(() => {
+    let end = 0;
+    return slices.map(({ label, color, count }, index) => {
+      const start = end;
+      const share = count / total;
+      end = index === slices.length - 1 ? 1 : start + share;
+      const path = `M 50 50 L ${piePoint(start).join(' ')} A 50 50 0 ${share > .5 ? 1 : 0} 1 ${piePoint(end).join(' ')} Z`;
+      return { color, path, box: pieLabelBox(label, start, end) };
+    });
+  }, [slices, total]);
 
   function showHover(event, index) {
     const { left, top } = layout.current.getBoundingClientRect();
@@ -201,7 +242,7 @@ function PieChart({ slices, total, title }) {
 
   return <div className="answer-pie-layout" ref={layout}>
     <svg className="answer-pie" viewBox="0 0 100 100" aria-hidden="true">
-      {slices.map(({ color, count, label }, index) => {
+      {sectors.map(({ color, path, box }, index) => {
         const props = {
           fill: color,
           'data-active': index === hover?.index,
@@ -209,31 +250,28 @@ function PieChart({ slices, total, title }) {
           onPointerMove: event => showHover(event, index),
           onPointerLeave: () => setHover(null),
         };
-        const start = end;
-        const share = count / total;
-        end = index === slices.length - 1 ? 1 : start + share;
-        const box = pieLabelBox(label, start, end);
-        const arc = `M 50 50 L ${piePoint(start).join(' ')} A 50 50 0 ${share > .5 ? 1 : 0} 1 ${piePoint(end).join(' ')} Z`;
         return <g key={color}>
           {slices.length === 1
             ? <circle cx={pieRadius} cy={pieRadius} r={pieRadius} {...props}/>
-            : <path d={arc} {...props}/>}
+            : <path d={path} {...props}/>}
           {box && <g className="answer-pie-label">
             <rect x={box.x - box.width / 2} y={box.y - box.height / 2} width={box.width} height={box.height} rx={1.2}/>
-            <text x={box.x} y={box.y} fontSize={pieLabelSize} textAnchor="middle" dominantBaseline="central">{label}</text>
+            <text fontSize={pieLabelSize} textAnchor="middle" dominantBaseline="central">{box.lines.map((line, index) =>
+              <tspan key={index} x={box.x} y={box.y + (index - (box.lines.length - 1) / 2) * pieLabelLineHeight}>{line}</tspan>
+            )}</text>
           </g>}
         </g>;
       })}
     </svg>
-    <ul className="answer-pie-legend" aria-label={title}>{slices.map(({ label: name, count, color }) => {
+    <div className="answer-pie-legend-scroll"><ul className="answer-pie-legend" role="list" aria-label={title}>{slices.map(({ label: name, count, color }) => {
       const share = count / total;
-      return <li key={color}>
-        <span className="answer-pie-swatch" style={{ backgroundColor: color }} aria-hidden="true"/>
+      return <li key={color} role="listitem">
+        <span aria-hidden="true"><i className="answer-pie-swatch" style={{ backgroundColor: color }}/></span>
         <span>{name}</span>
         <span className="answer-pie-value">{countText(count)}건</span>
         <small className="answer-pie-value">{share < .001 ? '<0.1%' : piePercent.format(share)}</small>
       </li>;
-    })}</ul>
+    })}</ul></div>
     {hovered && <div className="answer-pie-tooltip" aria-hidden="true" data-below={hover.y < 64}
       style={{ '--tooltip-x': `${hover.x}px`, '--tooltip-y': `${hover.y}px` }}>
       <span className="answer-pie-swatch" style={{ backgroundColor: hovered.color }}/>
@@ -242,8 +280,7 @@ function PieChart({ slices, total, title }) {
   </div>;
 }
 
-function Breakdown({ rows, label, title, showTable, total, groupedTotal }) {
-  if (!rows?.length) return null;
+function PieBreakdown({ rows, title, groupedTotal }) {
   const ranked = rows.filter(row => validCount(row.count) && row.count > 0).sort((a, b) => b.count - a.count);
   const listedTotal = ranked.reduce((sum, row) => sum + row.count, 0);
   const chartTotal = Math.max(listedTotal, groupedTotal ?? 0);
@@ -254,18 +291,26 @@ function Breakdown({ rows, label, title, showTable, total, groupedTotal }) {
     const otherCount = chartTotal - slices.reduce((sum, row) => sum + row.count, 0);
     slices.push({ label: '그 외 항목', count: otherCount, color: otherColor });
   }
+  if (!slices.length) return null;
+  return <figure>
+    <PieChart slices={slices} total={chartTotal} title={title}/>
+  </figure>;
+}
+
+function Breakdown({ rows, label, title, showTable, total, groupedTotal }) {
+  if (!rows?.length) return null;
+  const yearly = label === '연도';
+  const tableRows = yearly ? [...rows].sort((a, b) => String(a.label).localeCompare(String(b.label), 'ko', { numeric: true })) : rows;
   const percent = rows.some(row => Number.isFinite(row.percent));
   return <div className="answer-breakdown">
-    <h4>{title}</h4>
-    {slices.length > 0 && <figure>
-      <PieChart slices={slices} total={chartTotal} title={title}/>
-      {chartTotal !== total && <figcaption>비율은 {groupedTotal == null ? '표시된 ' : ''}항목별 건수 합계 기준</figcaption>}
-    </figure>}
-    <details open={showTable || slices.length === 0}>
+    <h4 className={yearly ? 'answer-year-heading' : undefined}>{title}</h4>
+    {yearly ? <YearTrend rows={rows} total={total} groupedTotal={groupedTotal}/>
+      : <PieBreakdown rows={rows} title={title} groupedTotal={groupedTotal}/>}
+    <details open={showTable || !rows.some(row => validCount(row.count) && row.count > 0)}>
       <summary>표 보기 ({rows.length}개 항목)</summary>
       <div className="answer-table-scroll"><table className="rag-statistics" aria-label={title}>
         <thead><tr><th scope="col">{label}</th><th scope="col">사례 수</th>{percent && <th scope="col">비율</th>}</tr></thead>
-        <tbody>{rows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>
+        <tbody>{tableRows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>
           <td>{validCount(row.count) ? countText(row.count) : '—'}</td>
           {percent && <td>{Number.isFinite(row.percent) ? row.percent.toFixed(2) + '%' : '—'}</td>}</tr>)}</tbody>
       </table></div>

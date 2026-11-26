@@ -375,9 +375,9 @@ def run_template(intent, conditions, summary_terms, group_by, scope, code=None):
                                 summary_terms=summary_terms, group_by=FINER[group_by]))
         elif intent == 'distribution':
             flows.append(follow('원인 순위', 'cause', conditions, summary_terms=summary_terms))
-        rows_top = rows[:10]  # shortcut: 표는 상위 10줄, 전체가 필요해지면 '더 보기' 추가
+        display_rows = sorted(rows, key=lambda row: row['label']) if group_by == 'year' else rows[:10]
         grouped_total = sum(row['count'] for row in rows)
-        return text, dict(kind='table', heading=heading, rows=rows_top, total=total, grouped_total=grouped_total), [], flows
+        return text, dict(kind='table', heading=heading, rows=display_rows, total=total, grouped_total=grouped_total), [], flows
 
     if intent in ('measures', 'checklist'):
         rows = measures(conditions, summary_terms, 3 if intent == 'checklist' else 6)
