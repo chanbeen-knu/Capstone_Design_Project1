@@ -121,9 +121,11 @@ terms: 질문에 나온 조건 표현을 원문 그대로 짧게 나열하세요
 질문 의도를 나타내는 말(사고, 사례, 대책, 원인, 위험성평가, 유해위험요인, 작업, 건수)은 terms에 넣지 마세요.
 '굴착기 작업'은 '굴착기'입니다.
 summary_terms: terms로 표현할 수 없는 사고 경위만 짧은 핵심 단어로 (예: '슬링이 이탈' → ['슬링','이탈']).
+'쓰러짐', '사망', '다침', '숨짐'처럼 사고 결과를 나타내는 말은 summary_terms에 넣지 마세요.
 group_by: '~별'이 있을 때만. 작업별=work, 단위작업별=unit_work, 공종별=work_type, 기인물별=object,
 기인물 분류별=object_category, 재해종류별=accident, 재해 계열별=accident_group, 원인별=hazard,
 원인 분류별=hazard_category, 연도별=year, 시기별=period, 높이별=height. 없으면 null.
+'어떤 기인물이 많아?'처럼 기인물을 물으면 object입니다. '기인물 분류'라고 말할 때만 object_category입니다.
 예: '비계 작업할 때 뭐 조심해?' → checklist, terms=['비계']
 예: '굴착기로 철근 반입할 때 대책 정리해줘' → measures, terms=['굴착기','철근 반입']
 예: '비계 추락 사고의 공학적 대책만' → measures, terms=['비계','추락','공학적 대책']
@@ -206,10 +208,11 @@ def resolve(text):
     exact = bool(found)
     if not found:
         found = [n for n in nodes if len(key(n)) >= 2 and key(n) in key_of(n)]
-    if not found:  # 표현 안에 개념 이름이 들어 있는 경우: 가장 긴 이름
-        inside = [n for n in nodes if len(key_of(n)) >= 2 and key_of(n) in key(n)]
-        longest = max((len(key_of(n)) for n in inside), default=0)
-        found = [n for n in inside if len(key_of(n)) == longest]
+    if not found:  # 표현 안에 개념 이름이나 사전 용어가 들어 있는 경우 (안전대 미착용 → 안전대): 가장 긴 것
+        names = {n['id']: [k for k in [key_of(n)] + [normalize(a) for a in n['aliases']] if len(k) >= 2 and k in key(n)]
+                 for n in nodes}
+        longest = max((len(k) for ks in names.values() for k in ks), default=0)
+        found = [n for n in nodes if any(len(k) == longest for k in names[n['id']])]
     ids = {n['id'] for n in found}
     found = [n for n in found if not ids.intersection(n['parents'])]
     dims = {DIM_OF_LABEL[n['label']] for n in found}
@@ -319,6 +322,22 @@ def default_group(intent, conditions, scope):
     return 'accident'
 
 
+# '2m도 안 되는', '10미터 넘는' 같은 높이 표현 → 추락 높이 구간 이름 (LLM이 '2m'만 뽑으면 두 구간에 모두 걸림)
+HEIGHT = re.compile(r'(\d+(?:\.\d+)?)\s*(?:m|미터)\s*도?\s*(미만|이하|안\s*되|아래|밑|이내|이상|넘|초과|위)')
+
+
+def height_name(text):
+    found = HEIGHT.search(text)
+    if not found:
+        return None
+    n, below = float(found.group(1)), found.group(2).replace(' ', '').startswith(('미만', '이하', '안되', '아래', '밑', '이내'))
+    if below and n <= 2:
+        return '2m 미만'
+    if not below and n >= 10:
+        return '10m 이상'
+    return '고소(2m 이상)' if not below and n == 2 else None
+
+
 def run_template(intent, conditions, summary_terms, group_by, scope, code=None):
     """답변 유형별 템플릿. 반환: (결론, 블록, 근거 사례 ID, 추가 질문)."""
     if intent == 'case_detail':
@@ -350,8 +369,14 @@ def run_template(intent, conditions, summary_terms, group_by, scope, code=None):
 
     if intent in ('distribution', 'cause'):
         group_by = group_by or default_group(intent, conditions, scope)
-        heading, _, dim = GROUPS[group_by]
         rows = group_rows(conditions, summary_terms, group_by, total)
+        # 집계가 조건 그 자체 한 줄이면('10m 이상 486건 중 10m 이상 486건') LLM이 고른 기준이어도 다른 축으로 묶는다
+        if len(rows) == 1 and rows[0]['id'] in conditions.get(GROUPS[group_by][2], []):
+            fallback = default_group(intent, conditions, scope)
+            group_by = fallback if GROUPS[fallback][2] != GROUPS[group_by][2] else (
+                'object' if GROUPS[group_by][2] != 'object' else 'accident')
+            rows = group_rows(conditions, summary_terms, group_by, total)
+        heading, _, dim = GROUPS[group_by]
         if not rows:
             return f"‘{label}’ 사망사고는 {total:,}건이지만 {heading} 정보가 있는 사례는 없어요.", None, [], []
         top = rows[0]
@@ -400,7 +425,9 @@ def run_template(intent, conditions, summary_terms, group_by, scope, code=None):
                                 summary_terms=summary_terms))
         else:
             flows.append(follow('반복된 유형', 'patterns', conditions, summary_terms=summary_terms))
-        return text, dict(kind='measures', items=rows, total=rows[0]['kinds']), [r['id'] for r in first], flows
+        # fact: 체크리스트 첫 문장의 근거 (가장 큰 원인과 그 건수) — 문장의 숫자가 응답 안에 남도록
+        fact = dict(hz[0], cases=total) if intent == 'checklist' and hz else None
+        return text, dict(kind='measures', items=rows, total=rows[0]['kinds'], fact=fact), [r['id'] for r in first], flows
 
     if intent == 'patterns':
         rows = patterns(conditions, summary_terms)
@@ -436,7 +463,7 @@ def answer(client, model, question, history, plan=None):
     metadata = dict(history_message_count=len(history), llm_calls=[], mapping=[])
     result = dict(agent='ontology', status='answered', answer='', sources=[], measures=[], statistics=None,
                   follow_up='', follow_ups=[], block=None, evidence=None, mapping=[], relaxed=[], metadata=metadata)
-    unresolved = []
+    unresolved, dropped = [], []
     if plan is not None:
         step = FollowUp.model_validate(plan)
         intent, group_by, summary_terms, code = step.intent, step.group_by, step.summary_terms, step.code
@@ -454,8 +481,19 @@ def answer(client, model, question, history, plan=None):
             return result
         intent, group_by, summary_terms, code = parsed.intent, parsed.group_by, list(parsed.summary_terms), None
         conditions = {}
-        for term in parsed.terms:
+        # 가운뎃점 분류 이름('맞음·부딪힘')과 이름이 정해진 작은 집합(대책 위계 4개, 법 시행 시기 3개)은
+        # 질문에 그대로 있으면 LLM이 쪼개거나 빠뜨려도 그 이름 하나로 쓴다
+        whole = [n['name'] for n in catalog() if ('·' in n['name'] or n['label'] in ('ControlLevel', 'Period'))
+                 and normalize(n['name']) in normalize(question)]
+        terms = whole + [t for t in parsed.terms if not any(normalize(t) in normalize(w) for w in whole)]
+        if height := height_name(question):
+            terms = [height] + [t for t in terms if not re.search(r'\d\s*(?:m|미터)', t)]
+        for term in terms:
             nodes, exact = resolve(term)
+            if len(nodes) > 1:  # 사전이 여러 개를 묶었을 때 질문에 구별하는 말이 있으면 그것만 ('바닥에 뚫린 개구부' → 바닥개구부)
+                question_key = normalize(question)
+                picked = [n for n in nodes if (rest := key_of(n).replace(work_name(term), '')) and rest in question_key]
+                nodes = picked or nodes
             dim = DIM_OF_LABEL[nodes[0]['label']] if nodes else None
             # 부분 일치로만 걸렸는데 그 축에 이미 조건이 있으면 OR로 넓히지 않고 개요 검색으로 (철근 → 철근콘크리트자재 방지)
             if not nodes or (not exact and dim in conditions):
@@ -469,7 +507,14 @@ def answer(client, model, question, history, plan=None):
                 return result
             if not any(key_of(n) in (normalize(term), work_name(term)) for n in nodes):
                 result['mapping'].append(dict(text=term, dim=dim, to=[n['name'] for n in nodes]))
-        summary_terms += unresolved  # 분류로 못 찾은 표현은 개요 검색으로
+        for term in list(summary_terms):  # LLM이 개요 검색어로 넘겼어도 사전·분류에 정확히 있으면 조건으로 ('떨어짐' → 추락)
+            nodes, exact = resolve(term)
+            if exact and nodes and DIM_OF_LABEL[nodes[0]['label']] not in conditions:
+                conditions[DIM_OF_LABEL[nodes[0]['label']]] = [n['id'] for n in nodes]
+                summary_terms.remove(term)
+        if conditions:  # 분류 조건이 있으면 분류에 없는 말('쓰러짐')로 범위를 좁히지 않고 빼 둔다
+            dropped, unresolved = unresolved, []
+        summary_terms += unresolved  # 분류 조건이 없을 때만 개요 검색으로
     if 'control' in conditions and intent not in ('measures', 'checklist'):
         intent = 'measures'
     needs_scope = intent in ('cases', 'checklist', 'measures')
@@ -480,10 +525,8 @@ def answer(client, model, question, history, plan=None):
 
     scope = {d: names_of(ids) for d, ids in conditions.items()}
     text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, scope, code)
-    dropped = []
-    if text is None and unresolved and conditions:  # 분류에 없는 말 때문에 0건이면 그 말을 빼고 다시
-        dropped, unresolved = unresolved, []
-        summary_terms = [t for t in summary_terms if t not in dropped]
+    if text is None and conditions and summary_terms:  # 분류 조건 위의 개요 검색어 때문에 0건이면 검색어를 빼고 다시
+        dropped, summary_terms = dropped + summary_terms, []
         text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, scope)
     if text is None:  # 0건
         dim, parents = relax(conditions, summary_terms)
@@ -505,11 +548,17 @@ def answer(client, model, question, history, plan=None):
                                 {k: v for k, v in conditions.items() if k != d}, summary_terms=summary_terms,
                                 group_by=group_by) for d in conditions]
     if dropped:
-        text = f"‘{', '.join(dropped)}’은(는) 분류에 없어 빼고 찾았어요. " + text
+        text += f" (‘{', '.join(dropped)}’은(는) 분류에 없어 조건에서 뺐어요.)"
     if unresolved and block:
         text += f" (‘{', '.join(unresolved)}’은(는) 분류에 없어 사고 개요에서 찾았어요.)"
+    narrow = [t for t in summary_terms if t not in unresolved]
+    if narrow and conditions and block:  # 분류 조건 위에 개요 글자 조건이 얹히면 몰래 좁히지 않고 알리고, 뺄 수 있게
+        text += f" (사고 개요에 ‘{', '.join(narrow)}’이(가) 들어간 사례로 좁혔어요.)"
+        flows = [follow('개요 조건 빼고 보기', intent, conditions, group_by=group_by)] + flows
 
-    result.update(intent=intent, answer=text, block=block, follow_ups=flows[:3])
+    # conditions: 실제로 조회에 쓴 노드 ID (평가 채점·디버깅용, experiment/run.py)
+    result.update(intent=intent, answer=text, block=block, follow_ups=flows[:3], conditions=conditions,
+                  summary_terms=summary_terms)
     if block:
         if intent == 'case_detail':
             case_ids, total_cases = evidence_ids, 1

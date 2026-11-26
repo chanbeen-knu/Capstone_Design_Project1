@@ -1,0 +1,23 @@
+id,persona,category,question,intents,conditions,facts,gold_cases,needs
+H01,작업자,동의어,덤프 근처에서 일할 때 주의할 점 알려줘,checklist|measures|cause|distribution,object=CO:트럭류,122,,용어 사전
+H02,작업자,체크리스트,거푸집 동바리 조립하는데 뭐 조심해야 돼?,checklist|measures,work=UW:2.1.2 거푸집 동바리 조립,112,,작업 계층·대책
+H03,작업자,체크리스트,바닥에 뚫린 개구부 근처에서 작업할 때 위험한 거 있어?,checklist|measures|distribution|cause,object=CO:바닥개구부,100,,기인물·대책
+H04,관리자,분포,철골공사 사고는 주로 어떤 재해야?,distribution,work=WT:3. 철골공사,208|추락|169,,작업 계층·재해종류
+H05,관리자,분포,터널공사 사망사고 몇 건이야?,distribution|cases,work=WT:9. 터널공사,36,,작업 계층
+H06,관리자,원인,신호수 없이 작업하다 난 사고 몇 건?,cause|distribution|cases,hazard=HF:작업계획·신호수 부재,191,,유발요인·용어 사전
+H07,관리자,분포,붕괴 사고는 어떤 작업에서 많이 나?,distribution|cause,accident=AT:붕괴,179|맨홀,,재해종류·작업 계층
+H08,관리자,원인,이동식비계 사고 원인 순위 알려줘,cause|distribution,object=CO:이동식비계,92|추락방지시설 미설치|86,,유발요인
+H09,관리자,대책 위계,트럭 사고에서 나온 관리적 대책만 정리해줘,measures,object=CO:트럭류;control=CL:관리적 대책,66,,통제위계
+H10,사무실,기인물 분류,양중·운반기계 관련 사고 몇 건이야?,distribution,object=COC:양중·운반기계,194,,기인물 분류
+H11,사무실,상위분류,깔림·끼임·뒤집힘·무너짐 계열 사고는 몇 건이야?,distribution,accident=ATG:깔림·끼임·뒤집힘·무너짐,731,,재해 상위분류·사례별 보정
+H12,사무실,시기,2019년에는 어떤 기인물 사고가 많았어?,distribution,period=Y:2019,450|지붕 채광판 등|34,,연도·기인물
+H13,사무실,시기,중대재해처벌법 시행 첫해 사고는 몇 건이야?,distribution|cases,period=P:중대재해처벌법 시행 첫해,371,,시기
+H14,사무실,높이,2m도 안 되는 높이에서 떨어진 사고 몇 건?,distribution|cases|cause,height=HB:2m 미만|HB:저고소(2m 미만),100,,추락 높이
+H15,관리자,원인,질식 사고는 왜 나?,cause,accident=AT:질식,20|밀폐공간·유해가스 관리 미흡,,재해종류·유발요인
+H16,교육,반복 유형,슬라브단부에서 반복되는 사고 유형은?,patterns,object=CO:슬라브단부,슬라브단부 · 추락 · 추락방지시설 미설치|116,,사고 패턴
+H17,사무실,통제,SIF-C-2000은 어떤 사고야?,case_detail,,2016|고소작업대 · 추락 · 위험 위치 탑승·이동|52,SIF-C-2000,사례·사고 패턴
+H18,작업자,동의어,렌탈 타고 작업할 때 조심할 거 있어?,checklist|measures|cause|distribution,object=CO:고소작업대,173,,용어 사전
+H19,관리자,범위 밖,이 사고 유족 보상금은 얼마 정도야?,unsupported,,,,
+H20,관리자,0건,엘리베이터피트 화재 사고 몇 건이야?,distribution|cases|cause,object=CO:엘리베이터피트;accident=AT:화재,확인되지,,0건 처리
+H21,관리자,상위분류,불안전한 상태 때문에 일어난 추락 사고는 몇 건?,distribution|cause,hazard=HC:불안전한 상태;accident=AT:추락,1779,,유발요인 분류
+H22,사무실,기인물 분류,전기 관련 사고를 재해종류별로 보여줘,distribution,object=COC:전기,86|감전|78,,기인물 분류

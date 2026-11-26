@@ -1,0 +1,41 @@
+id,persona,category,question,intents,conditions,facts,gold_cases,needs
+Q01,작업자,체크리스트,오늘 비계 위에서 일해. 뭐 조심해?,checklist|measures,object=CO:비계,196,,기인물·대책
+Q02,작업자,체크리스트,사다리 작업 전에 뭘 확인해야 해?,checklist|measures,object=CO:사다리,165,,기인물·대책
+Q03,작업자,동의어,아시바 작업할 때 주의할 점 알려줘,checklist|measures,object=CO:비계,,,용어 사전
+Q04,작업자,체크리스트,고소작업대 탈 때 조심할 거 있어?,checklist|measures,object=CO:고소작업대,173,,기인물·대책
+Q05,작업자,동의어,스카이차 쓸 때 위험한 거 뭐야?,checklist|measures|distribution|cause,object=CO:고소작업대,173,,용어 사전
+Q06,작업자,원인,안전대 안 걸면 실제로 사고 났어?,checklist|cause|cases|distribution,hazard=HF:안전대 미체결,36,,유발요인·용어 사전
+Q07,작업자,동의어,포크레인 옆에서 일하는데 위험한 거 있어?,checklist|distribution|cause|measures,object=CO:굴착기,142,,용어 사전
+Q08,관리자,분포,굴착기 작업에서 어떤 사고가 많아?,distribution,object=CO:굴착기,142|깔림|43,,기인물·재해종류
+Q09,관리자,대책 종합,굴착기로 철근 반입할 때 대책 정리해줘,measures|checklist,object=CO:굴착기;work=UW:2.3.1 철근 반입,3,SIF-C-0455|SIF-C-0461|SIF-C-0462,작업 계층·기인물·대책
+Q10,관리자,대책 위계,비계 추락 사고에 제시된 공학적 대책만 보여줘,measures,object=CO:비계;accident=AT:추락;control=CL:공학적 대책,122,,통제위계
+Q11,관리자,원인,굴착기 작업 위험성평가에 쓸 유해위험요인은?,cause|distribution,object=CO:굴착기,차량·보행자 동선 관리 미흡|53,,유발요인
+Q12,관리자,원인,추락방지시설 미설치로 인한 사고는 몇 건이야?,cause|distribution,hazard=HF:추락방지시설 미설치,1406,,유발요인
+Q13,관리자,원인,지게차 사고 원인이 뭐야?,cause,object=CO:지게차,운행경로 관리 미흡|11,,유발요인
+Q14,관리자,대책 종합,크레인 사고 예방대책 알려줘,measures|checklist,object=CO:이동식크레인;object=CO:타워크레인,101,,용어 사전·대책
+Q15,관리자,계층 집계,철근콘크리트 공사 사고를 작업별로 집계해줘,distribution,work=WT:2. 철근콘크리트 공사,433|213,,작업 계층
+Q16,관리자,계층 집계,토공사에서 사고가 많은 단위작업은?,distribution,work=WT:1. 토공사,206|1.2.2 흙막이 지보공 설치|31,,작업 계층
+Q17,관리자,분포,끼임 사고는 어떤 기인물에서 많이 나?,distribution|cause,accident=AT:끼임,154|고소작업대|30,,재해종류·기인물
+Q18,관리자,높이,10m 이상에서 떨어진 사고 원인은?,cause|distribution,height=HB:10m 이상,486|추락방지시설 미설치|385,,추락 높이·유발요인
+Q19,관리자,상위분류,불안전한 행동으로 인한 사고 몇 건이야?,distribution|cause,hazard=HC:불안전한 행동,337,,유발요인 분류
+Q20,관리자,원인,감전 사고 원인 알려줘,cause,accident=AT:감전,87|충전부 노출·누전,,재해종류·유발요인
+Q21,사무실,반복 유형,가장 많이 반복된 사고 유형 3개는?,patterns,,비계 · 추락 · 추락방지시설 미설치|168,SIF-C-1716,사고 패턴
+Q22,사무실,반복 유형,중대재해처벌법 시행 이후에도 반복된 사고 유형은?,patterns,period=P:중대재해처벌법 시행 이후,지붕 채광판 등 · 추락 · 발판·자재 파손·탈락|24,,사고 패턴·시기
+Q23,사무실,기인물 분류,건설기계 사고는 몇 건이야?,distribution,object=COC:차량·건설기계,614,,기인물 분류·용어 사전
+Q24,사무실,상위분류,맞음·부딪힘 계열 사고를 재해종류별로 집계해줘,distribution,accident=ATG:맞음·부딪힘,410|낙하|246,,재해 상위분류
+Q25,사무실,상위분류,떨어짐·넘어짐 계열 사고에서 가장 많은 기인물은?,distribution|cause,accident=ATG:떨어짐·넘어짐,2037|비계|187,,재해 상위분류·사례별 보정
+Q26,사무실,기인물 분류,가설구조물·가설재 관련 사고는 몇 건이야?,distribution,object=COC:가설구조물·가설재,880,,기인물 분류
+Q27,사무실,재분류,폭염으로 쓰러진 사고는 몇 건이야?,distribution|cases,accident=AT:온열질환(폭염),15,,재해종류 재분류
+Q28,사무실,시기,연도별 추락 사고 추이 보여줘,distribution,accident=AT:추락,2016년|295,,연도
+Q29,사무실,높이,추락 사고를 높이별로 보여줘,distribution,accident=AT:추락,2030|5~10m|487,,추락 높이
+Q30,사무실,시기,2023년 사망사고는 어떤 재해종류가 많아?,distribution,period=Y:2023,332|추락|182,,연도
+Q31,사무실,통제,SIF-C-0455 설명해줘,case_detail,,12,SIF-C-0455,사례·사고 패턴
+Q32,사무실,통제,SIF-C-0001은 어떤 유형의 사고야?,case_detail,,바닥개구부 · 추락 · 추락방지시설 미설치|88,SIF-C-0001,사례·사고 패턴
+Q33,사무실,통제,SIF-C-1357의 기인물은?,case_detail,,지붕 채광판 등,SIF-C-1357,사례
+Q34,전체,사례,철근 반입 작업의 사고사례를 보여줘,cases,work=UW:2.3.1 철근 반입,12,,작업 계층
+Q35,교육,반복 유형,굴착기 사고에서 반복되는 유형 알려줘,patterns,object=CO:굴착기,굴착기 · 깔림 · 차량·보행자 동선 관리 미흡|27,,사고 패턴
+Q36,교육,반복 유형,사다리 사고 교육 자료로 쓸 대표 유형은?,patterns|cases,object=CO:사다리,사다리 · 추락 · 사다리 위 균형 상실,,사고 패턴
+Q37,관리자,동의어,굴삭기 사고 몇 건이야?,distribution,object=CO:굴착기,142,,용어 사전
+Q38,관리자,범위 밖,오늘 우리 현장에서 사고가 발생할 확률은 몇 퍼센트야?,unsupported,,,,
+Q39,사무실,범위 밖,산업안전보건법 몇 조를 위반한 거야?,unsupported,,,,
+Q40,관리자,0건,타워크레인 질식 사고 몇 건이야?,distribution|cases|cause|checklist|measures,object=CO:타워크레인;accident=AT:질식,확인되지,,0건 처리

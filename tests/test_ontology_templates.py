@@ -86,5 +86,13 @@ class TemplateTests(unittest.TestCase):
             self.assertEqual(run(**item['plan'])['status'], 'answered', item['label'])
 
 
+class HeightPhraseTests(unittest.TestCase):  # DB 불필요
+    def test_height_name(self):
+        cases = {'2m도 안 되는 높이에서 떨어진 사고': '2m 미만', '10미터 넘는 곳에서 추락': '10m 이상',
+                 '2m 이상 고소작업': '고소(2m 이상)', '1.5m 이하 사다리': '2m 미만', '5m 아래': None, '굴착기 사고': None}
+        for text, expected in cases.items():
+            self.assertEqual(o.height_name(text), expected, text)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import { AnswerText, CaseCards, StatisticsCard } from './AnswerCards';
+import QueryGraph from './QueryGraph';
 import SelectBox from './SelectBox';
 import { useSettings } from '../settings';
 
@@ -53,6 +54,7 @@ function visibleAnswer(message) {
 
 function Answer({ message, onRetry, onFollowUp, compare, question }) {
   const [copyStatus, setCopyStatus] = useState('');
+  const [graphOpen, setGraphOpen] = useState(false);
   const measuresForAnswer = message.measures || [];
   const content = visibleAnswer(message);
   async function copy() {
@@ -100,6 +102,14 @@ function Answer({ message, onRetry, onFollowUp, compare, question }) {
     {message.sources?.length > 0 && <CaseCards cases={message.sources}/>}
     </>}
     {message.follow_up && <section className="answer-card answer-main"><h3>후속 질문</h3><AnswerText text={message.follow_up}/></section>}
+    {/* 근거 그래프: 답변 맨 아래, 펼칠 때만 그림 */}
+    {message.agent === 'ontology' && message.query_graph && <details className="answer-card answer-evidence rag-sources"
+      onToggle={event => setGraphOpen(event.currentTarget.open)}>
+      <summary>조회 근거 그래프 보기</summary>
+      {graphOpen && (message.query_graph.error
+        ? <p role="status">{message.query_graph.error}</p>
+        : <QueryGraph graph={message.query_graph}/>)}
+    </details>}
     {!message.failed && <button type="button" className="copy-button" onClick={copy} aria-label="답변 복사" title={copyStatus || '답변 복사'}><Icon name="copy" size={15}/>{copyStatus && <span>{copyStatus}</span>}</button>}
     {message.failed && <button type="button" className="secondary-button" onClick={onRetry}>이 답변 다시 시도</button>}
   </article>;
