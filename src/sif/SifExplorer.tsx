@@ -2,6 +2,7 @@
 //   <SifExplorer initialCase="SIF-C-0001" />
 import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import SelectBox from '../components/SelectBox';
 import SifGraph from './SifGraph';
 import { GROUP_COLOR, PERSONAS, api } from './api';
 import type {
@@ -226,9 +227,9 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
           </button>
         ))}
         <div className="sif-navigation-label">보는 사람</div>
-        <select value={persona} onChange={(e) => setPersona(Number(e.target.value))} style={{ padding: 6 }}>
+        <SelectBox aria-label="보는 사람" value={persona} onChange={(e) => setPersona(Number(e.target.value))} style={{ paddingBlock: 6, paddingInlineStart: 6 }}>
           {PERSONAS.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
-        </select>
+        </SelectBox>
       </aside>
 
       {view === 'object' ? (
@@ -255,17 +256,17 @@ export default function SifExplorer({ initialCase = 'SIF-C-0001', objectView, da
             <button key={k} style={btn(workKind === k)} onClick={() => { setWorkKind(k); setSel(null); setExpand(null); }}>{k === 'work_type' ? '건설 공종' : '제조 업종'}</button>
           ))}
           {isTaxonomy && view !== 'year' && (
-            <span style={{ fontSize: 12, color: '#4A5563', display: 'flex', gap: 4, alignItems: 'center' }}>
+            <span className="sif-year-select">
               연도
-              <select value={years.y0 ?? ''} onChange={(e) => setYears((y) => ({ ...y, y0: e.target.value ? Number(e.target.value) : null }))}>
+              <SelectBox aria-label="시작 연도" value={years.y0 ?? ''} onChange={(e) => setYears((y) => ({ ...y, y0: e.target.value ? Number(e.target.value) : null }))}>
                 <option value="">처음</option>
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
+              </SelectBox>
               ~
-              <select value={years.y1 ?? ''} onChange={(e) => setYears((y) => ({ ...y, y1: e.target.value ? Number(e.target.value) : null }))}>
+              <SelectBox aria-label="종료 연도" value={years.y1 ?? ''} onChange={(e) => setYears((y) => ({ ...y, y1: e.target.value ? Number(e.target.value) : null }))}>
                 <option value="">끝</option>
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
+              </SelectBox>
             </span>
           )}
         </div>

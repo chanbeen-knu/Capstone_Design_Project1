@@ -186,4 +186,6 @@ def answer(client, model, agent, question, history):
     if paragraphs:
         result.update(answer='\n\n'.join(paragraphs), status='answered',
                       sources=[by_id[case_id] for case_id in cited])
+        if plan.intent == 'cases':
+            result['block'] = dict(kind='cases', items=evidence, total=len(evidence))
     return result

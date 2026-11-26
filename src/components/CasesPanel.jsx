@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { filterCases, loadCases } from '../data/caseRepository';
 import { useSettings } from '../settings';
 import PatternsView from './PatternsView';
+import SelectBox from './SelectBox';
 const emptyFilters = { query: '', group: '', category: '', task: '' };
 const noRecords = [];
 const PAGE_SIZE = 45;
@@ -43,13 +44,13 @@ export default function CasesPanel() {
     <header className="graph-header"><div className="heading-row"><div><h1>사고 사례 조회</h1><p>사고 사례를 검색하고 원인과 예방대책을 확인하세요.</p></div></div></header>
     <div className="case-tabs" role="tablist" aria-label="사례 보기">
       <button role="tab" aria-selected={mode === 'list'} className={mode === 'list' ? 'active' : ''} onClick={() => setMode('list')}>사례 목록</button>
-      <button role="tab" aria-selected={mode === 'patterns'} className={mode === 'patterns' ? 'active' : ''} onClick={() => setMode('patterns')}>사고 패턴 <small>비슷한 사고 묶음</small></button>
+      <button role="tab" aria-selected={mode === 'patterns'} className={mode === 'patterns' ? 'active' : ''} onClick={() => setMode('patterns')}>사고 패턴 </button>
     </div>
     {error ? <div className="empty-state" role="alert">{error}<button onClick={load}>다시 시도</button></div> : !archive ? <div className="empty-state" role="status">사고 사례를 불러오고 있습니다.</div> : <>
       <div className="case-filters">{mode === 'list' && <label>키워드 검색<input placeholder="제목·사고 내용·예방대책 검색" value={filters.query} onChange={e => change('query', e.target.value)}/></label>}<div className="filter-row">
-        <label>자료 구분<select value={filters.group} onChange={e => change('group', e.target.value)}><option value="">전체 자료</option>{options(records, 'group').map(v => <option key={v}>{v}</option>)}</select></label>
-        {mode === 'list' && <><label>업종 / 공종<select value={filters.category} onChange={e => change('category', e.target.value)}><option value="">전체 분류</option>{options(scoped, 'category').map(v => <option key={v}>{v}</option>)}</select></label>
-        <label>작업 / 상황<select value={filters.task} onChange={e => change('task', e.target.value)}><option value="">전체 작업</option>{options(scoped, 'task').map(v => <option key={v}>{v}</option>)}</select></label>
+        <label>자료 구분<SelectBox value={filters.group} onChange={e => change('group', e.target.value)}><option value="">전체 자료</option>{options(records, 'group').map(v => <option key={v}>{v}</option>)}</SelectBox></label>
+        {mode === 'list' && <><label>업종 / 공종<SelectBox value={filters.category} onChange={e => change('category', e.target.value)}><option value="">전체 분류</option>{options(scoped, 'category').map(v => <option key={v}>{v}</option>)}</SelectBox></label>
+        <label>작업 / 상황<SelectBox value={filters.task} onChange={e => change('task', e.target.value)}><option value="">전체 작업</option>{options(scoped, 'task').map(v => <option key={v}>{v}</option>)}</SelectBox></label>
         <button className="secondary-button" onClick={() => { setFilters(emptyFilters); setPage(1); setSelected(null); listPosition.current = 0; scroll.current?.scrollTo(0, 0); }}>초기화</button></>}
       </div></div>
       {mode === 'patterns' ? <div className="case-scroll"><PatternsView group={filters.group} onOpenRecord={openRecord}/></div> : <>

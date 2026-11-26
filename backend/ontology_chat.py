@@ -18,6 +18,7 @@ from rag import structured
 # shortcut: 범위 고정값. feat/neo4j-graph의 ontology/config/scope.yaml이 합쳐지면 거기서 읽을 것.
 SECTORS = ['C']
 CODE = re.compile(r'SIF-C-\d{4}')
+CASE_PAGE_SIZE = 5
 
 Intent = Literal['checklist', 'distribution', 'measures', 'cause', 'patterns', 'cases', 'case_detail']
 Dim = Literal['work', 'object', 'accident', 'hazard', 'period', 'height', 'control']
@@ -92,7 +93,7 @@ SKIP $skip LIMIT $limit
 OPTIONAL MATCH (c)-[:OCCURRED_DURING]->(u)
 OPTIONAL MATCH (c)-[:HAS_ACCIDENT_TYPE]->(a)
 OPTIONAL MATCH (c)-[:BELONGS_TO]->(p:AccidentPattern)
-RETURN c.id AS id, c.code AS code, c.year AS year, u.name AS work, c.raw_co AS object, a.name AS accident,
+RETURN c.id AS id, c.code AS code, c.year AS year, c.month AS month, u.name AS work, c.raw_co AS object, a.name AS accident,
        c.summary AS summary, c.raw_hf AS hazard, c.raw_ms AS measures, p.name AS pattern, p.size AS pattern_size,
        [(p)-[:DEFINED_BY]->(x) | x.id] AS pattern_ids
 """
@@ -143,13 +144,19 @@ class Plan(BaseModel):
     group_by: GroupBy | None = None
 
 
-class FollowUp(BaseModel):
+class CaseQuery(BaseModel):
+    conditions: dict[Dim, list[str]] = Field(default_factory=dict)
+    summary_terms: list[str] = Field(default_factory=list, max_length=8)
+
+
+class CasePageRequest(CaseQuery):
+    offset: int = Field(default=0, ge=0, le=2**63 - 1)
+
+
+class FollowUp(CaseQuery):
     """추가 질문 버튼이 보내는 요청. 직전 답변의 조건(노드 ID)을 그대로 쓰므로 LLM 해석이 없다."""
     intent: Intent
-    conditions: dict[Dim, list[str]] = Field(default_factory=dict)
     group_by: GroupBy | None = None
-    summary_terms: list[str] = Field(default_factory=list, max_length=8)
-    page: int = Field(default=0, ge=0, le=100)
     code: str | None = Field(default=None, pattern=r'^SIF-C-\d{4}$')
 
 
@@ -312,14 +319,15 @@ def default_group(intent, conditions, scope):
     return 'accident'
 
 
-def run_template(intent, conditions, summary_terms, group_by, page, scope, code=None):
+def run_template(intent, conditions, summary_terms, group_by, scope, code=None):
     """답변 유형별 템플릿. 반환: (결론, 블록, 근거 사례 ID, 추가 질문)."""
     if intent == 'case_detail':
         row = graph.run("MATCH (c:AccidentCase {code:$code}) WITH c" + CASES, code=code, skip=0, limit=1)
         if not row:
             return f'{code} 사례를 찾지 못했어요.', None, [], []
         r = row[0]
-        text = f"{r['code']}는 {r['year']}년 {r['work']} 중 {r['object']}로 발생한 {r['accident']} 사고예요."
+        year = f"{r['year']}년 " if r['year'] else ''
+        text = f"{year}{r['work']} 중 {r['object']}로 발생한 {r['accident']} 사고예요."
         flows = []
         if r['pattern']:
             text += f" 같은 유형({r['pattern']})이 {r['pattern_size']:,}건 반복됐어요."
@@ -335,15 +343,10 @@ def run_template(intent, conditions, summary_terms, group_by, page, scope, code=
         return None, None, [], []
 
     if intent == 'cases':
-        rows = cases(conditions, summary_terms, skip=page * 3)
-        text = f"‘{label}’ 사망사고는 {total:,}건이에요." if page == 0 else f"‘{label}’ 사례 {page * 3 + 1}~{page * 3 + len(rows)}번째예요."
-        flows = []
-        if (page + 1) * 3 < total:
-            flows.append(follow(f'다음 {min(3, total - (page + 1) * 3)}건', 'cases', conditions,
-                                summary_terms=summary_terms, page=page + 1))
-        flows += [follow('같은 유형 몇 건?', 'patterns', conditions, summary_terms=summary_terms),
-                  follow('이 사고들의 대책', 'measures', conditions, summary_terms=summary_terms)]
-        return text, dict(kind='cases', items=rows, total=total), [r['id'] for r in rows], flows
+        rows = cases(conditions, summary_terms, limit=CASE_PAGE_SIZE)
+        text = f"‘{label}’ 사망사고는 {total:,}건이에요."
+        case_query = dict(conditions=conditions, summary_terms=summary_terms)
+        return text, dict(kind='cases', items=rows, total=total, case_query=case_query), [r['id'] for r in rows], []
 
     if intent in ('distribution', 'cause'):
         group_by = group_by or default_group(intent, conditions, scope)
@@ -373,7 +376,8 @@ def run_template(intent, conditions, summary_terms, group_by, page, scope, code=
         elif intent == 'distribution':
             flows.append(follow('원인 순위', 'cause', conditions, summary_terms=summary_terms))
         rows_top = rows[:10]  # shortcut: 표는 상위 10줄, 전체가 필요해지면 '더 보기' 추가
-        return text, dict(kind='table', heading=heading, rows=rows_top, total=total), [], flows
+        grouped_total = sum(row['count'] for row in rows)
+        return text, dict(kind='table', heading=heading, rows=rows_top, total=total, grouped_total=grouped_total), [], flows
 
     if intent in ('measures', 'checklist'):
         rows = measures(conditions, summary_terms, 3 if intent == 'checklist' else 6)
@@ -383,12 +387,11 @@ def run_template(intent, conditions, summary_terms, group_by, page, scope, code=
         if intent == 'checklist':
             hz = [] if 'hazard' in conditions else group_rows(conditions, summary_terms, 'hazard', total, limit=1)
             text = (f"‘{label}’ 사망사고 {total:,}건 중 {hz[0]['count']:,}건({hz[0]['percent']:.2f}%)이 "
-                    f"{hz[0]['label']} 때문이었어요. 꼭 지킬 3가지예요." if hz else
-                    f"‘{label}’ 관련 사망사고는 {total:,}건이에요. 가장 많이 제시된 대책 3가지예요.")
+                    f"{hz[0]['label']} 때문이었어요." if hz else
+                    f"‘{label}’ 관련 사망사고는 {total:,}건이에요.")
         else:
-            kind = ' · '.join(n['name'] for n in scope.get('control', [])) or '대책'
-            text = (f"‘{label}’ 사망사고 {total:,}건에서 {kind} {rows[0]['kinds']:,}종이 나왔고, "
-                    f"가장 많이 제시된 것은 ‘{rows[0]['text']}’({rows[0]['count']:,}건)이에요.")
+            text = (f"‘{label}’ 사망사고 {total:,}건에서 가장 많이 제시된 대책은 "
+                    f"‘{rows[0]['text']}’이에요.")
         first = cases(conditions, summary_terms)
         flows = [follow('실제 사고 사례', 'cases', conditions, summary_terms=summary_terms),
                  follow('왜 이런 사고가?', 'cause', conditions, summary_terms=summary_terms)]
@@ -436,12 +439,11 @@ def answer(client, model, question, history, plan=None):
     unresolved = []
     if plan is not None:
         step = FollowUp.model_validate(plan)
-        intent, group_by, summary_terms, page, code = (step.intent, step.group_by, step.summary_terms,
-                                                       step.page, step.code)
+        intent, group_by, summary_terms, code = step.intent, step.group_by, step.summary_terms, step.code
         conditions = {d: [n['id'] for n in names_of(ids)] for d, ids in step.conditions.items()}
         conditions = {d: ids for d, ids in conditions.items() if ids}
     elif (found := CODE.search(question)) is not None:
-        intent, conditions, group_by, summary_terms, page, code = 'case_detail', {}, None, [], 0, found.group()
+        intent, conditions, group_by, summary_terms, code = 'case_detail', {}, None, [], found.group()
     else:
         parsed = structured(client, model, Plan, PROMPT, dict(question=question, history=history),
                             metadata['llm_calls'], 'classification')
@@ -450,7 +452,7 @@ def answer(client, model, question, history, plan=None):
             result.update(intent='unsupported', status='unsupported',
                           answer='사고 확률·법령 해석·현장 안전 판정은 답할 수 없어요. 사망사고 기록의 사례·건수·원인·대책·반복 유형은 물어볼 수 있어요.')
             return result
-        intent, group_by, summary_terms, page, code = parsed.intent, parsed.group_by, list(parsed.summary_terms), 0, None
+        intent, group_by, summary_terms, code = parsed.intent, parsed.group_by, list(parsed.summary_terms), None
         conditions = {}
         for term in parsed.terms:
             nodes, exact = resolve(term)
@@ -477,12 +479,12 @@ def answer(client, model, question, history, plan=None):
         return result
 
     scope = {d: names_of(ids) for d, ids in conditions.items()}
-    text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, page, scope, code)
+    text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, scope, code)
     dropped = []
     if text is None and unresolved and conditions:  # 분류에 없는 말 때문에 0건이면 그 말을 빼고 다시
         dropped, unresolved = unresolved, []
         summary_terms = [t for t in summary_terms if t not in dropped]
-        text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, page, scope)
+        text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, scope)
     if text is None:  # 0건
         dim, parents = relax(conditions, summary_terms)
         if dim:
@@ -491,7 +493,7 @@ def answer(client, model, question, history, plan=None):
                                       after=[n['name'] for n in names_of(parents)])]
             conditions = with_cond(conditions, dim, parents)
             scope = {d: names_of(ids) for d, ids in conditions.items()}
-            text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, page, scope)
+            text, block, evidence_ids, flows = run_template(intent, conditions, summary_terms, group_by, scope)
             text = f"‘{before}’ 사망사고 기록은 확인되지 않아 {DIM_TITLE[dim]}을(를) 한 단계 넓혀 찾았어요. " + text
         elif unresolved:
             text = f"‘{', '.join(unresolved)}’은(는) 분류에서 확인하지 못했고, 사고 개요에서도 찾지 못했어요. 다른 표현으로 물어봐 주세요."

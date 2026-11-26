@@ -13,10 +13,17 @@ import './App.css';
 import './readability.css';
 import useConversations from './hooks/useConversations';
 const DEFAULT_OBJECT = '비계';
+const CHAT_OPEN_KEY = 'safegori.chat-open';
+
+function initialMenu() {
+  try { return sessionStorage.getItem(CHAT_OPEN_KEY) === 'true' ? 'chat' : 'explore'; }
+  catch { return 'explore'; }
+}
+
 export default function App() {
   const [settings, changeSettings] = usePreferences();
   const chats = useConversations();
-  const [selectedMenu, setSelectedMenu] = useState('explore');
+  const [selectedMenu, setSelectedMenu] = useState(initialMenu);
   const [selectedNode, setSelectedNode] = useState(null);
   const [graph, setGraph] = useState(mockGraph);
   const [objects, setObjects] = useState([]);
@@ -56,6 +63,8 @@ export default function App() {
   }, []);
   function navigate(menu) {
     setSelectedMenu(menu); setMenuOpen(false); setPresentation(false);
+    try { sessionStorage.setItem(CHAT_OPEN_KEY, String(menu === 'chat')); }
+    catch { /* 브라우저 저장소 없이도 메뉴 이동은 가능합니다. */ }
   }
 
   return <SettingsContext.Provider value={settings}><div className={`app wide ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${presentation ? 'presenting' : ''} ${menuOpen ? 'menu-open' : ''}`}>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
-import { AnswerText, StatisticsCard } from './AnswerCards';
-import QueryGraph from './QueryGraph';
+import { AnswerText, CaseCards, StatisticsCard } from './AnswerCards';
+import SelectBox from './SelectBox';
 import { useSettings } from '../settings';
 
 const labels = { ontology: '온톨로지 RAG', vector: '벡터 RAG', compare: '나란히 비교' };
@@ -20,48 +20,44 @@ const suggestions = [
 ];
 
 const ontologyIntents = { cases: '사례 조회', distribution: '조건 집계', advice: '대책 종합' };
-const sourcePageSize = 12;
 
 function MeasureList({ measures }) {
   return <ul className="rag-measures">
-    {measures.map(measure => <li key={measure.id || measure.text}>
-      {measure.text}<br/><small>{measure.count != null && `등장 사례 ${measure.count}건 · `}근거 {(measure.case_codes || []).join(', ')}</small>
-    </li>)}
+    {measures.map(measure => <li key={measure.id || measure.text}>{measure.text}</li>)}
   </ul>;
 }
 
-// 새 온톨로지 답변: 결론 카드 아래 블록 하나 — 표(막대) / 대책 / 반복 유형 / 사례
-function Block({ block, intent, question }) {
+function Block({ message, question }) {
+  const { block } = message;
   if (block.kind === 'table') return <StatisticsCard question={question}
-    statistics={{ total: block.total, rows: block.rows, group_label: block.heading }}/>;
-  const title = block.kind === 'measures' ? (intent === 'checklist' ? '꼭 지킬 것' : '예방대책')
-    : block.kind === 'patterns' ? '반복된 사고 유형' : '사고 사례';
-  return <section className="answer-card answer-measures"><h3>{title}</h3>
-    {block.kind === 'measures' && <ol className="rag-measures">{block.items.map(item => <li key={item.id}>{item.text}<br/><small>
-      {(item.levels.length ? item.levels : ['분류 전']).map(level => <span key={level} className="level-badge">{level}</span>)}
-      {item.count.toLocaleString('ko-KR')}건에서 제시
-    </small></li>)}</ol>}
-    {block.kind === 'patterns' && <ol className="rag-measures">{block.items.map(item => <li key={item.id}>{item.name}<br/><small>
-      {item.count.toLocaleString('ko-KR')}건{item.count !== item.size && ` (전체 ${item.size.toLocaleString('ko-KR')}건)`}{item.rep && ` · 대표 ${item.rep}`}
-    </small></li>)}</ol>}
-    {block.kind === 'cases' && block.items.map(item => <details key={item.id} open={block.items.length === 1}>
-      <summary>{item.code} · {item.year}년 · {item.work} · {item.accident}</summary>
-      <p>{item.summary}</p>
-      {item.hazard && <p><strong>재해유발요인</strong> {item.hazard}</p>}
-      {item.measures && <p><strong>위험성 감소대책</strong>{'\n'}{item.measures}</p>}
-      {item.pattern && <p><small>같은 유형 {item.pattern_size.toLocaleString('ko-KR')}건: {item.pattern}</small></p>}
-    </details>)}
+    statistics={{ total: block.total, rows: block.rows, group_label: block.heading, grouped_total: block.grouped_total }}/>;
+  if (block.kind === 'cases') {
+    // 이전에 저장한 조회는 후속 버튼에 동일한 검색 조건이 있습니다.
+    const savedPlan = message.intent === 'cases' && message.follow_ups?.find(({ plan }) =>
+      plan?.conditions && ['cases', 'patterns', 'measures'].includes(plan.intent))?.plan;
+    return <CaseCards cases={block.items} total={block.total} query={block.case_query || savedPlan || undefined}/>;
+  }
+  const measures = block.kind === 'measures';
+  return <section className="answer-card answer-measures">
+    <h3>{measures ? '사고 예방 대책' : '반복된 사고 유형'}</h3>
+    <ol className="rag-measures">{block.items.map(item => <li key={item.id}>{measures ? item.text : item.name}</li>)}</ol>
   </section>;
 }
 
+function visibleAnswer(message) {
+  if (message.agent === 'vector') return message.content.replace(/(?:[ \t]+\[\d+\])+(?=\s*$)/gm, '');
+  if (message.intent === 'checklist') return message.content.replace(
+    /\s*(?:꼭 지킬|가장 많이 제시된 대책)\s*\d+가지(?:예요|에요|입니다)[.!?]?/g, '');
+  return message.content;
+}
+
 function Answer({ message, onRetry, onFollowUp, compare, question }) {
-  const [graphOpen, setGraphOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
-  const [sourceLimit, setSourceLimit] = useState(sourcePageSize);
   const measuresForAnswer = message.measures || [];
+  const content = visibleAnswer(message);
   async function copy() {
     try {
-      await navigator.clipboard.writeText([message.content, message.follow_up].filter(Boolean).join('\n\n'));
+      await navigator.clipboard.writeText([content, message.follow_up].filter(Boolean).join('\n\n'));
       setCopyStatus('복사됨');
     } catch {
       setCopyStatus('복사 실패');
@@ -71,60 +67,38 @@ function Answer({ message, onRetry, onFollowUp, compare, question }) {
   return <article className="message assistant">
     {compare && <div className="message-label">{labels[message.agent]}</div>}
     <section className="answer-card answer-main">
-      <h3>{message.failed ? '답변 요청 실패' : '핵심 답변'}</h3>
-      <AnswerText text={message.content}/>
-      {message.mapping?.length > 0 && <p className="rag-mapping">{message.mapping.map(m => `${m.text} → ${m.to.join(', ')}`).join(' · ')}</p>}
+      <h3>{message.failed ? '답변 요청 실패' : '답변 요약'}</h3>
+      <AnswerText text={content}/>
     </section>
-    {message.block && <Block block={message.block} intent={message.intent} question={question}/>}
-    {message.evidence?.codes.length > 0 && <p className="rag-mapping">근거 {message.evidence.codes.join(', ')}
-      {message.evidence.total > message.evidence.codes.length && ` 외 ${(message.evidence.total - message.evidence.codes.length).toLocaleString('ko-KR')}건`}</p>}
-    {message.follow_ups?.length > 0 && <div className="follow-ups">{message.follow_ups.map(item =>
-      <button type="button" key={item.label} onClick={() => onFollowUp?.(item)}>{item.label}</button>)}</div>}
+    {message.block && <Block message={message} question={question}/>}
+    {onFollowUp && message.block?.kind !== 'cases' && message.follow_ups?.length > 0 && <div className="follow-ups">{message.follow_ups.map(item =>
+      <button type="button" key={item.label} onClick={() => onFollowUp(item)}>{item.label}</button>)}</div>}
     {!message.block && <>
     <StatisticsCard statistics={message.statistics} question={question}/>
     {message.agent === 'ontology' && message.intent === 'advice' && message.statistics?.top_accidents?.length > 0
-      // 대책이 똑같은 재해종류는 한 문단으로 합치고, 근거 사례도 합쳐서 보여 줌
+      // 대책이 똑같은 재해종류는 한 문단으로 합칩니다.
       ? Object.values(Object.groupBy(message.statistics.top_accidents, accident => measuresForAnswer
         .filter(measure => measure.accident_id === accident.id).map(measure => measure.id).sort().join() || accident.id)).map(group => {
         const accident = group[0], ids = group.map(row => row.id);
-        const measures = Object.values(Object.groupBy(measuresForAnswer.filter(measure => ids.includes(measure.accident_id)), measure => measure.id))
-          .map(rows => { const case_codes = [...new Set(rows.flatMap(row => row.case_codes))].sort(); return { ...rows[0], case_codes, count: case_codes.length }; });
+        const measures = [...new Map(measuresForAnswer.filter(measure => ids.includes(measure.accident_id))
+          .map(measure => [measure.id || measure.text, measure])).values()];
         const summary = accident.measure_summary?.length
           ? accident.measure_summary
           : (accident.measure_explanation || '').split(/\n+|(?<=[.!?。])\s+/).map(line => line.trim()).filter(Boolean);
         return <section key={ids.join()} className="answer-card answer-measures">
-          <h3>{group.map(row => row.label).join('·')} 사고 예방대책</h3>
+          <h3>{group.map(row => row.label).join('·')} 사고 예방 대책</h3>
           {summary.length > 0
             ? <ul>{summary.map((item, i) => <li key={i}>{item}</li>)}</ul>
             : !measures.length && <p>연결된 예방대책이 없습니다.</p>}
           {measures.length > 0 && <details>
-            <summary>예방대책 원문 및 근거 {measures.length}종</summary>
+            <summary>사고 예방 대책 원문</summary>
             <MeasureList measures={measures}/>
           </details>}
         </section>;
       })
-      : message.measures?.length > 0 && <section className="answer-card answer-measures"><h3>예방대책</h3><MeasureList measures={message.measures}/></section>}
-    {message.sources?.length > 0 && <details className="answer-card answer-evidence rag-sources">
-      <summary>근거 사례 {message.sources.length}건</summary>
-      {message.sources.slice(0, sourceLimit).map((source, index) => <details key={source.id}>
-        <summary>[{index + 1}] {source.code} · {source.work || source.object}</summary>
-        <small>{source.file} · {source.sheet} {source.row}행</small>
-        {(source.classified_accident || source.accident) && <p><strong>재해종류</strong> {source.classified_accident || source.accident}</p>}
-        <p>{source.summary}</p>
-        {source.hazard && <p><strong>재해유발요인</strong> {source.hazard}</p>}
-        {source.measures && <p><strong>위험성 감소대책</strong>{'\n'}{source.measures}</p>}
-      </details>)}
-      {sourceLimit < message.sources.length && <button type="button" className="secondary-button"
-        onClick={() => setSourceLimit(limit => limit + sourcePageSize)}>사례 더 보기</button>}
-    </details>}
+      : message.measures?.length > 0 && <section className="answer-card answer-measures"><h3>사고 예방 대책</h3><MeasureList measures={message.measures}/></section>}
+    {message.sources?.length > 0 && <CaseCards cases={message.sources}/>}
     </>}
-    {message.agent === 'ontology' && message.query_graph && <details className="answer-card answer-evidence rag-sources"
-      onToggle={event => setGraphOpen(event.currentTarget.open)}>
-      <summary>조회 근거 그래프 보기</summary>
-      {graphOpen && (message.query_graph.error
-        ? <p role="status">{message.query_graph.error}</p>
-        : <QueryGraph graph={message.query_graph}/>)}
-    </details>}
     {message.follow_up && <section className="answer-card answer-main"><h3>후속 질문</h3><AnswerText text={message.follow_up}/></section>}
     {!message.failed && <button type="button" className="copy-button" onClick={copy} aria-label="답변 복사" title={copyStatus || '답변 복사'}><Icon name="copy" size={15}/>{copyStatus && <span>{copyStatus}</span>}</button>}
     {message.failed && <button type="button" className="secondary-button" onClick={onRetry}>이 답변 다시 시도</button>}
@@ -134,7 +108,8 @@ function Answer({ message, onRetry, onFollowUp, compare, question }) {
 export default function ChatPanel({ messages, setMessages, storageError, onNewConversation }) {
   const settings = useSettings();
   const request = useRef(null);
-  const end = useRef(null);
+  const messageList = useRef(null);
+  const scrollOnTurn = useRef(false);
   const [mode, setMode] = useState('ontology');
   const [input, setInput] = useState('');
   const [pending, setPending] = useState([]);
@@ -144,7 +119,11 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
   const busy = pending.length > 0;
 
   useEffect(() => () => request.current?.abort(), []);
-  useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [messages, pending]);
+  useEffect(() => {
+    if (!scrollOnTurn.current || !messageList.current) return;
+    messageList.current.scrollTop = messageList.current.scrollHeight;
+    if (!busy) scrollOnTurn.current = false;
+  }, [messages, busy]);
 
   async function fetchAnswer(turn, agent, history, controller) {
     let message;
@@ -173,6 +152,7 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
     if (request.current) return;
     const controller = new AbortController();
     request.current = controller;
+    scrollOnTurn.current = true;
     setPending(agents.map(agent => ({ agent, turnId: turn.id })));
     try {
       await Promise.all(agents.map(agent => {
@@ -212,13 +192,15 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
   const turns = messages.filter(message => message.role === 'user');
   return <section className={`chat-panel ${settings.reading ? 'reading-mode' : ''}`} aria-label="안전 채팅">
     <div className="rag-chat-header">
-      {legacy ? <span>이전 대화</span> : <label>답변 방식 <select value={activeMode} onChange={event => setMode(event.target.value)} disabled={Boolean(first)}>
-        {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select></label>}
+      {legacy ? <span>이전 대화</span> : <label className="rag-mode-label">답변 방식
+        <SelectBox value={activeMode} onChange={event => setMode(event.target.value)} disabled={Boolean(first)}>
+          {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </SelectBox>
+      </label>}
       {first && <button type="button" className="secondary-button" onClick={onNewConversation}>새 대화</button>}
     </div>
     {storageError && <p className="chat-storage-error" role="status">{storageError}</p>}
-    <div className="messages rag-messages" role="log" aria-label="대화 메시지" aria-live="polite">
+    <div ref={messageList} className="messages rag-messages" role="log" aria-label="대화 메시지" aria-live="polite">
       {!messages.length && <>
         <div className="chat-intro"><h1>안전대책 물어보기</h1><p>SIF 건설업 사고 사례에서 근거를 찾아 답합니다.</p></div>
         <div className="suggestions" aria-label="분류별 예시 질문">
@@ -247,7 +229,6 @@ export default function ChatPanel({ messages, setMessages, storageError, onNewCo
           </div>
         </div>;
       })}
-      <div ref={end}/>
     </div>
     {!legacy && <div className="composer-area">
       <form onSubmit={event => { event.preventDefault(); sendMessage(); }}>

@@ -85,6 +85,12 @@ def chat(request: ChatRequest):
     return result
 
 
+@app.post("/api/chat/cases")
+def chat_cases(request: ontology_chat.CasePageRequest):
+    return {"items": ontology_chat.cases(request.conditions, request.summary_terms,
+                                        skip=request.offset, limit=ontology_chat.CASE_PAGE_SIZE)}
+
+
 @app.get("/api/health")
 def health():
     try:

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { menus, nodeTypes, nodeDescriptions } from '../data/mockData';
 import Icon from './Icon';
+import SelectBox from './SelectBox';
 import { useSettings } from '../settings';
 
 // 흐름 배치: 작업 → 기인물 → 유발요인 → 재해종류 → 예방대책 (왼쪽 → 오른쪽)
@@ -202,15 +203,15 @@ export default function GraphPanel({ graph, selectedMenu, selectedNode,
     : null;
 
   return <main ref={panel} className={`graph-panel ${fullscreen ? 'graph-fullscreen' : ''}`}>
-    <header className="graph-header"><div className="eyebrow">WORKSPACE <span>/</span> {activeMenu.label}</div><div className="heading-row"><div><h1>Knowledge Graph</h1><p>산업재해 관계 탐색</p></div><span className="sample-badge"><span/> {isMock ? '샘플 데이터' : 'Neo4j 실데이터'}</span></div></header>
+    <header className="graph-header"><h1>{activeMenu.label}</h1></header>
     <div className="graph-toolbar">
       <div className="graph-count">관계 네트워크 <span>{graph.nodes.length} nodes · {graph.links.length} links</span></div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {objects.length > 0 && <label className="graph-count" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="graph-toolbar-actions">
+        {objects.length > 0 && <label className="graph-count graph-object-picker">
           기인물
-          <select value={currentObject} onChange={(event) => onSelectObject(event.target.value)} style={{ fontSize: 11, padding: '4px 6px', border: '1px solid #e3ece6', borderRadius: 4 }}>
+          <SelectBox value={currentObject} onChange={(event) => onSelectObject(event.target.value)}>
             {objects.map((object) => <option key={object.name} value={object.name}>{object.name} ({object.cases})</option>)}
-          </select>
+          </SelectBox>
         </label>}
         <button className="text-button" onClick={() => { setFilter('all'); onSelectNode(null); fit(); }}><Icon name="fit" size={15}/> 화면 맞춤</button>
         <button ref={fullscreenButton} className="text-button" aria-pressed={fullscreen} onClick={fullscreen ? closeFullscreen : openFullscreen}>{fullscreen ? '전체보기 닫기 ✕' : '그래프 전체보기 ↗'}</button>
